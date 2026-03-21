@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android Release APK
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-android:
-    name: Build Debug APK
+    name: Build Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # No cache here — lock file may not exist
 
       # ────────────────────────────────────────────
       # 3. Java 17 (required by AGP 8.x)
@@ -44,10 +44,10 @@ jobs:
         run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       # ────────────────────────────────────────────
-      # 5. Install npm dependencies
+      # 5. Install dependencies (no lock file needed)
       # ────────────────────────────────────────────
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       # ────────────────────────────────────────────
       # 6. Expo Prebuild → generates /android folder
@@ -62,35 +62,22 @@ jobs:
         run: chmod +x android/gradlew
 
       # ────────────────────────────────────────────
-      # 8. Build Debug APK
+      # 8. Build Release APK (smaller, R8 minified)
+      #    Uses Expo's auto-generated debug keystore
+      #    (no need for secrets for personal use)
       # ────────────────────────────────────────────
-      - name: Build Debug APK
+      - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
         env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-          GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4g'
+          GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m'
 
       # ────────────────────────────────────────────
-      # 9. Upload APK as artifact (تحميل من GitHub)
+      # 9. Upload APK as artifact
       # ────────────────────────────────────────────
-      - name: Upload APK artifact
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: qadaa-prayers-debug-${{ github.run_number }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: qadaa-prayers-release-${{ github.run_number }}
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
-
-      # ────────────────────────────────────────────
-      # 10. (اختياري) Release APK بـ Keystore
-      #     فعّل هذه الخطوة عند رفع Secrets
-      # ────────────────────────────────────────────
-      # - name: Build Release APK
-      #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      #   working-directory: android
-      #   run: ./gradlew assembleRelease --no-daemon
-      #   env:
-      #     ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_PATH }}
-      #     ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      #     ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      #     ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
