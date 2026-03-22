@@ -1,4 +1,4 @@
-name: Build & Deploy PWA to GitHub Pages
+name: Deploy PWA to GitHub Pages
 
 on:
   push:
@@ -9,45 +9,20 @@ permissions:
   contents: write
 
 jobs:
-  deploy-pwa:
-    name: Build & Deploy PWA
+  deploy:
+    name: Deploy PWA
     runs-on: ubuntu-latest
 
     steps:
-      # ────────────────────────────────────────────
-      # 1. Checkout
-      # ────────────────────────────────────────────
+      # ── 1. Checkout ──────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ────────────────────────────────────────────
-      # 2. Node.js 20 LTS
-      # ────────────────────────────────────────────
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      # ────────────────────────────────────────────
-      # 3. Install dependencies
-      # ────────────────────────────────────────────
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      # ────────────────────────────────────────────
-      # 4. Build Expo Web (static output)
-      # ────────────────────────────────────────────
-      - name: Build Expo Web
-        run: npx expo export -p web
-        env:
-          NODE_ENV: production
-
-      # ────────────────────────────────────────────
-      # 5. Deploy to GitHub Pages (gh-pages branch)
-      # ────────────────────────────────────────────
+      # ── 2. Deploy pwa/ folder to GitHub Pages ──
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          publish_dir: ./pwa
           force_orphan: true
+          commit_message: "Deploy PWA [skip ci]"

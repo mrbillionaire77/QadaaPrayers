@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>توليد الأيقونة</title>
+</head>
+<body>
+<canvas id="c" width="512" height="512"></canvas>
+<script>
+// This script generates icon PNG files — run locally if needed.
+// The SVG mosque-icon.svg is used as the primary icon.
+// GitHub Pages will serve the SVG directly.
+// For PWA icons, browsers that support SVG masks will use mosque-icon.svg.
+// Fallback PNG icons are created below.
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+ctx.fillStyle = '#1F4A3A';
+ctx.beginPath();
+ctx.arc(256, 256, 256, 0, Math.PI * 2);
+ctx.fill();
+ctx.fillStyle = '#C5A028';
+ctx.font = 'bold 280px serif';
+ctx.textAlign = 'center';
+ctx.textBaseline = 'middle';
+ctx.fillText('🕌', 256, 270);
+console.log(c.toDataURL());
+</script>
+</body>
+</html>
