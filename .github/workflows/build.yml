@@ -1,15 +1,16 @@
-name: Build Android Release APK
+name: Build & Deploy PWA to GitHub Pages
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build-android:
-    name: Build Release APK
+  deploy-pwa:
+    name: Build & Deploy PWA
     runs-on: ubuntu-latest
 
     steps:
@@ -26,58 +27,27 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # No cache here — lock file may not exist
 
       # ────────────────────────────────────────────
-      # 3. Java 17 (required by AGP 8.x)
-      # ────────────────────────────────────────────
-      - name: Setup Java 17 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      # ────────────────────────────────────────────
-      # 4. Accept Android SDK licenses
-      # ────────────────────────────────────────────
-      - name: Accept Android SDK licenses
-        run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
-      # ────────────────────────────────────────────
-      # 5. Install dependencies (no lock file needed)
+      # 3. Install dependencies
       # ────────────────────────────────────────────
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
       # ────────────────────────────────────────────
-      # 6. Expo Prebuild → generates /android folder
+      # 4. Build Expo Web (static output)
       # ────────────────────────────────────────────
-      - name: Expo Prebuild (Android)
-        run: npx expo prebuild --platform android --clean --no-install
-
-      # ────────────────────────────────────────────
-      # 7. Grant Gradle execute permission
-      # ────────────────────────────────────────────
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
-
-      # ────────────────────────────────────────────
-      # 8. Build Release APK (smaller, R8 minified)
-      #    Uses Expo's auto-generated debug keystore
-      #    (no need for secrets for personal use)
-      # ────────────────────────────────────────────
-      - name: Build Release APK
-        working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+      - name: Build Expo Web
+        run: npx expo export -p web
         env:
-          GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m'
+          NODE_ENV: production
 
       # ────────────────────────────────────────────
-      # 9. Upload APK as artifact
+      # 5. Deploy to GitHub Pages (gh-pages branch)
       # ────────────────────────────────────────────
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          name: qadaa-prayers-release-${{ github.run_number }}
-          path: android/app/build/outputs/apk/release/app-release.apk
-          retention-days: 30
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          force_orphan: true

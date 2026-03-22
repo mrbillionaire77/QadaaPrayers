@@ -22,7 +22,16 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./assets/mosque-icon.png",
+      "name": "قضاء الصلوات",
+      "shortName": "قضاء الصلوات",
+      "description": "تطبيق لتتبع الصلوات الفائتة وقضائها",
+      "themeColor": "#1F4A3A",
+      "backgroundColor": "#F5F0E6",
+      "display": "standalone",
+      "orientation": "portrait",
+      "lang": "ar",
+      "dir": "rtl"
     },
     "plugins": [
       "expo-router",
