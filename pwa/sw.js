@@ -2,7 +2,7 @@
 // قضاء الصلوات — Service Worker v3
 // Offline-first: cache everything on install
 // ══════════════════════════════════════════
-const CACHE_NAME = 'qadaa-prayers-v3';
+const CACHE_NAME = 'qadaa-prayers-v5';
 
 // All assets to cache on install (app shell)
 const APP_SHELL = [
@@ -36,7 +36,7 @@ self.addEventListener('install', event => {
     })
   );
   // Activate immediately without waiting for old SW to finish
-  self.skipWaiting();
+  self.skipWaiting(); // Force immediate activation
 });
 
 // ── ACTIVATE ───────────────────────────────
@@ -52,6 +52,10 @@ self.addEventListener('activate', event => {
   );
   // Take control of all open clients immediately
   self.clients.claim();
+  // Notify all clients to reload after SW update
+  self.clients.matchAll({ type: 'window' }).then(clients => {
+    clients.forEach(client => client.postMessage({ type: 'SW_UPDATED' }));
+  });
 });
 
 // ── FETCH ──────────────────────────────────
