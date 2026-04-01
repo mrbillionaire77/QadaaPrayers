@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#1F4A3A" />
-  <meta name="description" content="تطبيق لتتبع الصلوات الفائتة وقضائها" />
+  <meta name="description" content="تطبيق لتتبع الصلوات الفائتة وقضائها — يعمل بدون إنترنت" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -13,7 +13,8 @@
   <link rel="apple-touch-icon" href="mosque-icon.svg" />
   <link rel="icon" href="mosque-icon.svg" />
   <title>قضاء الصلوات</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <!-- Inline font fallback so app works offline after first load -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
   <style>
@@ -32,13 +33,15 @@
       --border:       #E8E2D4;
       --danger:       #B5433A;
       --danger-bg:    #FFF0EF;
+      --success:      #2E7D52;
+      --success-bg:   #EAF5EE;
       --info-bg:      rgba(31,74,58,0.07);
       --shadow:       rgba(31,74,58,0.12);
     }
 
     html, body {
       height: 100%;
-      font-family: 'Tajawal', sans-serif;
+      font-family: 'Tajawal', -apple-system, 'Segoe UI', sans-serif;
       background: var(--beige);
       color: var(--text);
       -webkit-font-smoothing: antialiased;
@@ -50,90 +53,138 @@
     /* ══ HEADER ══ */
     .header {
       background: var(--primary);
-      padding: 48px 16px 20px;
+      padding: 44px 16px 18px;
       display: flex;
       flex-direction: column;
       align-items: center;
       position: relative;
+      flex-shrink: 0;
     }
-    .header-actions {
-      position: absolute;
-      top: 52px;
-      left: 16px;
-      display: flex;
-      gap: 8px;
+    .header-actions-left {
+      position: absolute; top: 48px; left: 14px;
+      display: flex; gap: 8px;
+    }
+    .header-actions-right {
+      position: absolute; top: 48px; right: 14px;
+      display: flex; gap: 8px;
     }
     .header-icon-btn {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(197,160,40,0.18);
-      color: var(--gold);
-      font-size: 19px;
-      cursor: pointer;
+      width: 38px; height: 38px; border-radius: 50%; border: none;
+      background: rgba(197,160,40,0.18); color: var(--gold);
+      font-size: 18px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: background 0.2s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
     }
-    .header-icon-btn:active { transform: scale(0.92); background: rgba(197,160,40,0.32); }
+    .header-icon-btn:active { transform: scale(0.9); background: rgba(197,160,40,0.32); }
 
-    .mosque-icon { width: 68px; height: 68px; margin-bottom: 6px; object-fit: contain; }
-    .header-title { font-size: 25px; font-weight: 800; color: #fff; }
-    .header-date { font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 3px; }
+    .mosque-icon { width: 62px; height: 62px; margin-bottom: 6px; object-fit: contain; }
+    .header-title { font-size: 24px; font-weight: 800; color: #fff; }
+    .header-dates { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 4px; }
+    .header-date-greg { font-size: 12px; color: rgba(255,255,255,0.65); }
+    .header-date-hijri { font-size: 12px; color: var(--gold-light); font-weight: 600; }
+
+    /* ══ OFFLINE BADGE ══ */
+    .offline-banner {
+      background: #5A6B62; color: #fff; text-align: center;
+      font-size: 12px; padding: 6px 16px; flex-shrink: 0;
+      display: none;
+    }
+    .offline-banner.show { display: block; }
 
     /* ══ TOTAL CARD ══ */
-    .total-card {
+    .total-section {
       background: var(--primary);
-      margin: 0 16px;
-      border-radius: 18px;
-      padding: 16px 24px;
+      padding: 0 16px 16px;
+      flex-shrink: 0;
+    }
+    .total-card {
+      background: rgba(255,255,255,0.07);
+      border-radius: 18px; padding: 14px 20px;
       text-align: center;
       border: 1.5px solid rgba(197,160,40,0.35);
-      margin-bottom: 4px;
     }
-    .total-number { font-size: 50px; font-weight: 900; color: var(--gold); line-height: 1; letter-spacing: -1px; }
-    .total-label { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 5px; }
+    .total-number { font-size: 52px; font-weight: 900; color: var(--gold); line-height: 1; letter-spacing: -1px; }
+    .total-label { font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+    .total-sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
 
     /* ══ SCROLL AREA ══ */
     .scroll-area {
-      flex: 1;
-      overflow-y: auto;
+      flex: 1; overflow-y: auto;
       background: var(--beige);
       padding: 14px 16px 130px;
       -webkit-overflow-scrolling: touch;
     }
     .section-gap { height: 12px; }
 
+    /* ══ SECTION TITLE ══ */
+    .sec-title {
+      font-size: 13px; font-weight: 700; color: var(--text-muted);
+      margin-bottom: 8px; padding-right: 4px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    /* ══ NOTIFY BANNER ══ */
+    .notify-banner {
+      background: var(--info-bg); border-radius: 12px; padding: 11px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-bottom: 12px;
+    }
+    .notify-banner-text { font-size: 13px; color: var(--text-sec); flex: 1; }
+    .notify-banner-btn {
+      background: var(--primary); color: #fff; border: none; border-radius: 8px;
+      padding: 7px 12px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+
+    /* ══ STATS CARD ══ */
+    .stats-card {
+      background: var(--card); border-radius: 18px; padding: 14px 16px;
+      box-shadow: 0 2px 10px var(--shadow); margin-bottom: 14px;
+    }
+    .stats-row { display: flex; gap: 10px; }
+    .stat-box {
+      flex: 1; background: var(--beige); border-radius: 12px; padding: 12px 8px;
+      text-align: center;
+    }
+    .stat-num { font-size: 22px; font-weight: 900; color: var(--primary); }
+    .stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.3; }
+    .stat-box.gold .stat-num { color: var(--gold); }
+    .stat-box.green .stat-num { color: var(--success); }
+    .progress-bar-wrap {
+      margin-top: 12px; background: var(--border); border-radius: 99px; height: 8px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; background: linear-gradient(90deg, var(--primary), var(--gold));
+      border-radius: 99px; transition: width 0.4s ease; min-width: 0;
+    }
+    .progress-label { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; }
+
     /* ══ PRAYERS CARD ══ */
     .prayers-card {
-      background: var(--card);
-      border-radius: 22px;
-      overflow: hidden;
-      box-shadow: 0 2px 12px var(--shadow);
-      margin-bottom: 14px;
+      background: var(--card); border-radius: 22px; overflow: hidden;
+      box-shadow: 0 2px 12px var(--shadow); margin-bottom: 14px;
     }
     .prayer-row {
       display: flex; flex-direction: row;
       align-items: center; justify-content: space-between;
-      padding: 13px 16px;
-      border-bottom: 1px solid var(--border);
-      gap: 8px;
+      padding: 12px 14px; border-bottom: 1px solid var(--border); gap: 8px;
     }
     .prayer-row:last-child { border-bottom: none; }
     .prayer-info { flex: 1; text-align: right; }
-    .prayer-name { font-size: 17px; font-weight: 700; color: var(--primary); }
-    .prayer-time { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-    .counter-section { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+    .prayer-name { font-size: 16px; font-weight: 700; color: var(--primary); }
+    .prayer-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .counter-section { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .count-display {
-      min-width: 62px; text-align: center;
-      font-size: 25px; font-weight: 900; color: var(--text);
+      min-width: 58px; text-align: center;
+      font-size: 24px; font-weight: 900; color: var(--text);
       cursor: pointer; padding: 2px 4px; border-radius: 8px;
       transition: background 0.15s;
       -webkit-tap-highlight-color: transparent; user-select: none;
     }
     .count-display:active { background: var(--beige); }
     .ctrl-btn {
-      width: 37px; height: 37px; border-radius: 50%; border: none;
-      cursor: pointer; font-size: 21px; font-weight: 700;
+      width: 36px; height: 36px; border-radius: 50%; border: none;
+      cursor: pointer; font-size: 20px; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
       transition: transform 0.1s, opacity 0.15s;
       -webkit-tap-highlight-color: transparent; flex-shrink: 0; line-height: 1;
@@ -141,55 +192,53 @@
     .ctrl-btn:active { transform: scale(0.88); opacity: 0.8; }
     .ctrl-increment { background: var(--primary); color: #fff; }
     .ctrl-decrement { background: var(--border); color: var(--text-sec); }
-    .ctrl-decrement:disabled { opacity: 0.32; cursor: default; }
+    .ctrl-decrement:disabled { opacity: 0.3; cursor: default; }
+
+    /* ══ QUICK ADD CARD ══ */
+    .quick-card {
+      background: var(--card); border-radius: 18px; padding: 14px 16px;
+      box-shadow: 0 2px 10px var(--shadow); margin-bottom: 14px;
+    }
+    .quick-title { font-size: 14px; font-weight: 700; color: var(--text-sec); margin-bottom: 10px; }
+    .quick-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .quick-btn {
+      flex: 1; min-width: 70px; padding: 10px 8px; border-radius: 12px; border: none;
+      background: var(--beige); color: var(--primary);
+      font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+      text-align: center; transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .quick-btn:active { background: rgba(31,74,58,0.15); transform: scale(0.97); }
+    .quick-btn span { display: block; font-size: 11px; color: var(--text-muted); font-weight: 500; margin-top: 2px; }
 
     /* ══ VERSE CARD ══ */
     .verse-card {
-      background: var(--card);
-      border-radius: 18px;
-      padding: 18px 20px 14px;
-      text-align: center;
-      box-shadow: 0 1px 6px var(--shadow);
-      margin-bottom: 10px;
+      background: var(--card); border-radius: 18px; padding: 16px 20px 14px;
+      text-align: center; box-shadow: 0 1px 6px var(--shadow); margin-bottom: 10px;
     }
-    .verse-text { font-size: 15px; font-weight: 700; color: var(--primary); line-height: 1.7; }
-    .app-tag { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
-    .tip { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px; }
+    .verse-text { font-size: 15px; font-weight: 700; color: var(--primary); line-height: 1.8; }
+    .app-tag { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    .tip { text-align: center; font-size: 12px; color: var(--text-muted); padding: 6px; }
 
     /* ══ FAB ROW ══ */
     .fab-row {
-      position: fixed;
-      bottom: 20px; left: 16px; right: 16px;
-      display: flex; gap: 10px;
-      z-index: 100;
+      position: fixed; bottom: 16px; left: 16px; right: 16px;
+      display: flex; gap: 10px; z-index: 100;
     }
     .fab-btn {
-      flex: 1; border: none; border-radius: 99px; padding: 15px 16px;
-      font-family: 'Tajawal', sans-serif; font-size: 15px; font-weight: 700;
-      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px;
+      flex: 1; border: none; border-radius: 99px; padding: 14px 16px;
+      font-family: inherit; font-size: 15px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
       transition: transform 0.1s, opacity 0.15s; -webkit-tap-highlight-color: transparent;
     }
     .fab-btn:active { transform: scale(0.97); opacity: 0.88; }
     .fab-share { background: var(--gold); color: #fff; box-shadow: 0 4px 16px rgba(197,160,40,0.45); }
-    .fab-calc  { background: var(--primary); color: #fff; box-shadow: 0 4px 16px rgba(31,74,58,0.35); flex: 0 0 auto; width: 54px; padding: 0; font-size: 22px; }
+    .fab-calc  { background: var(--primary); color: #fff; box-shadow: 0 4px 16px rgba(31,74,58,0.35); flex: 0 0 auto; width: 52px; padding: 0; font-size: 20px; }
 
-    /* ══ NOTIFY BANNER ══ */
-    .notify-banner {
-      background: var(--info-bg);
-      border-radius: 12px; padding: 11px 14px;
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 10px; margin-bottom: 10px;
-    }
-    .notify-banner-text { font-size: 13px; color: var(--text-sec); flex: 1; }
-    .notify-banner-btn {
-      background: var(--primary); color: #fff; border: none; border-radius: 8px;
-      padding: 7px 12px; font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer;
-    }
-
-    /* ══ GENERIC MODAL ══ */
+    /* ══ MODALS & SHEETS ══ */
     .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.55);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
       display: flex; align-items: center; justify-content: center;
       z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s;
     }
@@ -202,24 +251,22 @@
       transform: scale(0.95) translateY(12px); transition: transform 0.2s;
     }
     .modal-overlay.open .modal-card { transform: scale(1) translateY(0); }
-    .modal-title { font-size: 18px; font-weight: 700; color: var(--primary); text-align: center; }
+    .modal-title { font-size: 17px; font-weight: 700; color: var(--primary); text-align: center; }
     .modal-input {
       width: 100%; border: 2px solid var(--primary); border-radius: 12px; padding: 12px;
-      font-family: 'Tajawal', sans-serif; font-size: 24px; font-weight: 800;
-      color: var(--text); text-align: center; outline: none;
+      font-family: inherit; font-size: 28px; font-weight: 800;
+      color: var(--text); text-align: center; outline: none; background: var(--beige);
     }
-    .modal-input:focus { border-color: var(--gold); }
+    .modal-input:focus { border-color: var(--gold); background: #fff; }
     .modal-btns { display: flex; gap: 10px; width: 100%; }
     .modal-btn {
       flex: 1; padding: 12px; border-radius: 12px; border: none;
-      font-family: 'Tajawal', sans-serif; font-size: 15px; font-weight: 700;
+      font-family: inherit; font-size: 15px; font-weight: 700;
       cursor: pointer; transition: opacity 0.15s;
     }
     .modal-btn:active { opacity: 0.8; }
     .modal-btn-cancel  { background: var(--border); color: var(--text-sec); }
     .modal-btn-confirm { background: var(--primary); color: #fff; }
-    .modal-btn-gold    { background: var(--gold); color: #fff; }
-    .modal-btn-danger  { background: var(--danger); color: #fff; }
 
     /* ══ BOTTOM SHEET ══ */
     .sheet-overlay {
@@ -229,7 +276,7 @@
     }
     .sheet-overlay.open { opacity: 1; pointer-events: all; }
     .sheet {
-      background: var(--beige); border-radius: 26px 26px 0 0;
+      background: var(--beige); border-radius: 24px 24px 0 0;
       width: 100%; max-height: 94dvh;
       display: flex; flex-direction: column; overflow: hidden;
       transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
@@ -238,91 +285,98 @@
     .sheet-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+      background: var(--beige);
     }
     .sheet-title { font-size: 17px; font-weight: 700; color: var(--primary); flex: 1; text-align: center; }
     .sheet-icon-btn {
       width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
-      font-size: 17px; display: flex; align-items: center; justify-content: center;
-      transition: opacity 0.15s;
+      font-size: 16px; display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.15s; -webkit-tap-highlight-color: transparent;
     }
     .sheet-icon-btn:active { opacity: 0.7; }
     .sheet-btn-close { background: var(--border); color: var(--text-sec); }
-    .sheet-btn-gold  { background: rgba(197,160,40,0.18); color: var(--gold); font-size: 19px; }
-    .sheet-btn-green { background: rgba(31,74,58,0.12); color: var(--primary); }
-    .sheet-body { overflow-y: auto; padding: 14px 16px 24px; -webkit-overflow-scrolling: touch; }
+    .sheet-body { overflow-y: auto; padding: 14px 16px 28px; -webkit-overflow-scrolling: touch; flex: 1; }
 
-    /* ══ SHAREABLE CARD ══ */
+    /* ══ TABS ══ */
+    .tab-bar {
+      display: flex; background: var(--border); border-radius: 12px; padding: 3px;
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      flex: 1; padding: 9px 8px; border-radius: 9px; border: none;
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s, color 0.2s;
+      background: transparent; color: var(--text-muted); text-align: center;
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; }
+
+    /* ══ SHARE CARD ══ */
     .shareable-card {
-      background: var(--beige); border-radius: 20px; padding: 22px 18px;
+      background: var(--beige); border-radius: 20px; padding: 20px 16px;
       width: 100%; max-width: 360px;
       border: 1px solid var(--border); box-shadow: 0 4px 16px var(--shadow);
     }
-    .sc-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 14px; }
-    .sc-icon { width: 56px; height: 56px; object-fit: contain; margin-bottom: 6px; }
-    .sc-title { font-size: 21px; font-weight: 800; color: var(--primary); }
-    .sc-date { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
-    .sc-total-box { background: var(--primary); border-radius: 14px; padding: 13px; text-align: center; margin-bottom: 12px; }
-    .sc-total-num { font-size: 38px; font-weight: 900; color: var(--gold); line-height: 1; }
-    .sc-total-lbl { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 4px; }
-    .sc-rows-card { background: var(--card); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
-    .sc-rows { display: flex; flex-direction: column; }
+    .sc-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 12px; }
+    .sc-icon { width: 52px; height: 52px; object-fit: contain; margin-bottom: 5px; }
+    .sc-title { font-size: 20px; font-weight: 800; color: var(--primary); }
+    .sc-date-greg { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .sc-date-hijri { font-size: 11px; color: var(--gold); font-weight: 600; }
+    .sc-total-box { background: var(--primary); border-radius: 14px; padding: 12px; text-align: center; margin-bottom: 10px; }
+    .sc-total-num { font-size: 36px; font-weight: 900; color: var(--gold); line-height: 1; }
+    .sc-total-lbl { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+    .sc-rows-card { background: var(--card); border-radius: 12px; overflow: hidden; margin-bottom: 10px; }
     .sc-row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid var(--border); }
     .sc-row:last-child { border-bottom: none; }
-    .sc-row-name { font-size: 15px; font-weight: 700; color: var(--primary); }
-    .sc-row-time { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
-    .sc-row-count { font-size: 19px; font-weight: 900; color: var(--text); }
+    .sc-row-name { font-size: 14px; font-weight: 700; color: var(--primary); }
+    .sc-row-time { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+    .sc-row-count { font-size: 18px; font-weight: 900; color: var(--text); }
+    .sc-progress-wrap { margin-bottom: 10px; }
+    .sc-progress-bar { background: var(--border); border-radius: 99px; height: 6px; overflow: hidden; }
+    .sc-progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--gold)); border-radius: 99px; }
+    .sc-progress-lbl { font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 4px; }
     .sc-verse { text-align: center; font-size: 13px; font-weight: 700; color: var(--primary); line-height: 1.8; }
-    .sc-app-tag { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 5px; }
-    .share-hint { font-size: 12px; color: var(--text-muted); text-align: center; padding: 0 16px; }
+    .sc-app-tag { text-align: center; font-size: 10px; color: var(--text-muted); margin-top: 4px; }
 
-    /* ══ SHARE ACTIONS ══ */
     .share-actions { display: flex; gap: 10px; width: 100%; max-width: 360px; }
     .share-action-btn {
       flex: 1; padding: 12px 10px; border-radius: 14px; border: none;
-      font-family: 'Tajawal', sans-serif; font-size: 14px; font-weight: 700;
+      font-family: inherit; font-size: 14px; font-weight: 700;
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
-      transition: opacity 0.15s;
+      transition: opacity 0.15s; -webkit-tap-highlight-color: transparent;
     }
     .share-action-btn:active { opacity: 0.8; }
     .btn-share-text { background: var(--primary); color: #fff; }
     .btn-share-pdf  { background: var(--gold); color: #fff; }
+    .share-hint { font-size: 11px; color: var(--text-muted); text-align: center; padding: 0 16px; }
 
-    /* ══ CALCULATOR SHEET ══ */
+    /* ══ CALC SHEET ══ */
     .calc-intro {
-      background: var(--info-bg); border-radius: 14px; padding: 14px 16px;
-      margin-bottom: 16px; font-size: 14px; color: var(--text-sec); line-height: 1.7;
+      background: var(--info-bg); border-radius: 14px; padding: 13px 15px;
+      margin-bottom: 16px; font-size: 13px; color: var(--text-sec); line-height: 1.7;
     }
     .calc-intro strong { color: var(--primary); }
 
-    .calc-section-title {
-      font-size: 15px; font-weight: 700; color: var(--primary);
-      margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
-    }
-
     .period-card {
       background: var(--card); border-radius: 16px; padding: 14px 14px 12px;
-      margin-bottom: 10px; box-shadow: 0 1px 6px var(--shadow);
-      position: relative;
+      margin-bottom: 10px; box-shadow: 0 1px 6px var(--shadow); position: relative;
     }
-    .period-label {
-      font-size: 13px; font-weight: 700; color: var(--text-muted);
-      margin-bottom: 10px;
-    }
+    .period-label { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 10px; }
     .period-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .period-row label { font-size: 13px; color: var(--text-sec); flex-shrink: 0; min-width: 100px; }
+    .period-row label { font-size: 12px; color: var(--text-sec); flex-shrink: 0; min-width: 90px; }
     .period-input {
-      flex: 1; border: 1.5px solid var(--border); border-radius: 10px; padding: 8px 12px;
-      font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;
+      flex: 1; border: 1.5px solid var(--border); border-radius: 10px; padding: 8px 10px;
+      font-family: inherit; font-size: 16px; font-weight: 700;
       color: var(--text); text-align: center; outline: none; background: var(--beige);
       min-width: 0;
     }
+    .period-input[type="date"] { font-size: 13px; font-weight: 600; text-align: right; }
     .period-input:focus { border-color: var(--primary); background: #fff; }
     .period-delete {
       position: absolute; top: 10px; left: 12px;
-      width: 28px; height: 28px; border-radius: 50%; border: none;
+      width: 26px; height: 26px; border-radius: 50%; border: none;
       background: var(--danger-bg); color: var(--danger);
-      font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: opacity 0.15s;
+      font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
     }
     .period-delete:active { opacity: 0.7; }
     .period-note { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
@@ -330,125 +384,202 @@
     .add-period-btn {
       width: 100%; padding: 12px; border-radius: 14px; border: 2px dashed var(--primary);
       background: transparent; color: var(--primary);
-      font-family: 'Tajawal', sans-serif; font-size: 15px; font-weight: 700;
+      font-family: inherit; font-size: 15px; font-weight: 700;
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
-      margin-bottom: 16px; transition: background 0.15s;
+      margin-bottom: 14px; transition: background 0.15s;
     }
     .add-period-btn:active { background: var(--info-bg); }
 
     .calc-result {
       background: var(--primary); border-radius: 16px; padding: 16px;
-      text-align: center; margin-bottom: 14px;
+      text-align: center; margin-bottom: 12px;
     }
-    .calc-result-num { font-size: 42px; font-weight: 900; color: var(--gold); line-height: 1; }
+    .calc-result-num { font-size: 40px; font-weight: 900; color: var(--gold); line-height: 1; }
     .calc-result-lbl { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 5px; }
+    .calc-result-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 3px; }
 
-    .calc-breakdown {
-      background: var(--card); border-radius: 14px; overflow: hidden; margin-bottom: 14px;
-    }
+    .calc-breakdown { background: var(--card); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
     .calc-breakdown-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 14px;
+      padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: 13px;
     }
     .calc-breakdown-row:last-child { border-bottom: none; }
     .calc-breakdown-name { font-weight: 600; color: var(--primary); }
     .calc-breakdown-val { font-weight: 800; color: var(--text); }
 
     .calc-error {
-      background: var(--danger-bg); border-radius: 12px; padding: 12px 14px;
-      font-size: 13px; color: var(--danger); margin-bottom: 12px; text-align: center;
+      background: var(--danger-bg); border-radius: 12px; padding: 11px 13px;
+      font-size: 13px; color: var(--danger); margin-bottom: 10px; text-align: center;
     }
-
     .calc-add-btn {
       width: 100%; padding: 14px; border-radius: 14px; border: none;
       background: var(--gold); color: #fff;
-      font-family: 'Tajawal', sans-serif; font-size: 16px; font-weight: 700;
+      font-family: inherit; font-size: 15px; font-weight: 700;
       cursor: pointer; transition: opacity 0.15s;
     }
     .calc-add-btn:active { opacity: 0.85; }
-    .calc-add-btn:disabled { opacity: 0.4; cursor: default; }
+    .calc-add-btn:disabled { opacity: 0.35; cursor: default; }
 
-    /* ══ MEDIA – PRINT / PDF ══ */
+    /* ══ RESET CONFIRM ══ */
+    .confirm-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 400; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .confirm-overlay.open { opacity: 1; pointer-events: all; }
+    .confirm-card {
+      background: var(--card); border-radius: 22px; padding: 24px 20px;
+      width: min(300px, 90vw); text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+      transform: scale(0.95); transition: transform 0.2s;
+    }
+    .confirm-overlay.open .confirm-card { transform: scale(1); }
+    .confirm-icon { font-size: 40px; margin-bottom: 10px; }
+    .confirm-title { font-size: 17px; font-weight: 700; color: var(--danger); margin-bottom: 8px; }
+    .confirm-msg { font-size: 14px; color: var(--text-sec); line-height: 1.6; margin-bottom: 20px; }
+    .confirm-btns { display: flex; gap: 10px; }
+    .confirm-btn {
+      flex: 1; padding: 12px; border-radius: 12px; border: none;
+      font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .confirm-btn-cancel { background: var(--border); color: var(--text-sec); }
+    .confirm-btn-ok { background: var(--danger); color: #fff; }
+
+    /* ══ PRINT / PDF ══ */
     @media print {
       body > *:not(#printArea) { display: none !important; }
       #printArea {
         display: block !important;
         font-family: 'Tajawal', sans-serif;
         direction: rtl; padding: 0; margin: 0;
+        font-size: 14px;
       }
-      .print-page {
-        width: 100%; max-width: 600px; margin: 0 auto;
-        padding: 32px 24px;
-      }
-      .print-header { text-align: center; margin-bottom: 24px; }
-      .print-mosque { font-size: 56px; margin-bottom: 4px; }
-      .print-main-title { font-size: 26px; font-weight: 900; color: #1F4A3A; }
-      .print-date { font-size: 13px; color: #9AA89F; margin-top: 4px; }
-      .print-total-box {
+      .pp { width: 100%; max-width: 640px; margin: 0 auto; padding: 28px 24px; }
+      .pp-header { text-align: center; margin-bottom: 20px; }
+      .pp-icon { font-size: 52px; margin-bottom: 4px; }
+      .pp-main-title { font-size: 26px; font-weight: 900; color: #1F4A3A; }
+      .pp-date { font-size: 12px; color: #9AA89F; margin-top: 3px; }
+      .pp-date-hijri { font-size: 12px; color: #C5A028; font-weight: 600; }
+      .pp-total {
         background: #1F4A3A !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
-        border-radius: 14px; padding: 18px; text-align: center; margin-bottom: 20px;
+        color-adjust: exact;
+        border-radius: 14px; padding: 16px; text-align: center; margin-bottom: 18px;
       }
-      .print-total-num { font-size: 48px; font-weight: 900; color: #C5A028; line-height: 1; }
-      .print-total-lbl { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 6px; }
-      .print-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-      .print-table th, .print-table td {
-        padding: 10px 14px; border-bottom: 1px solid #E8E2D4;
-        font-size: 15px; text-align: right;
+      .pp-total-num { font-size: 46px; font-weight: 900; color: #C5A028; line-height: 1; }
+      .pp-total-lbl { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 5px; }
+      .pp-stats {
+        display: flex; gap: 10px; margin-bottom: 18px;
       }
-      .print-table th { font-size: 12px; color: #9AA89F; font-weight: 600; }
-      .print-table td:first-child { color: #1F4A3A; font-weight: 700; }
-      .print-table td:last-child { font-weight: 900; font-size: 18px; color: #1A2E23; }
-      .print-periods { margin-bottom: 20px; }
-      .print-periods-title { font-size: 14px; color: #5A6B62; margin-bottom: 8px; }
-      .print-period-row { font-size: 13px; color: #5A6B62; padding: 4px 0; border-bottom: 1px solid #F0EBE0; }
-      .print-verse { text-align: center; font-size: 15px; font-weight: 700; color: #1F4A3A; line-height: 1.8; margin-top: 8px; }
-      .print-footer { text-align: center; font-size: 11px; color: #9AA89F; margin-top: 6px; }
+      .pp-stat {
+        flex: 1; background: #F5F0E6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        border-radius: 12px; padding: 12px; text-align: center;
+      }
+      .pp-stat-num { font-size: 22px; font-weight: 900; color: #1F4A3A; }
+      .pp-stat-lbl { font-size: 11px; color: #9AA89F; margin-top: 3px; }
+      .pp-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+      .pp-table th, .pp-table td { padding: 10px 12px; border-bottom: 1px solid #E8E2D4; text-align: right; }
+      .pp-table th { font-size: 11px; color: #9AA89F; font-weight: 600; }
+      .pp-table td:first-child { color: #1F4A3A; font-weight: 700; font-size: 15px; }
+      .pp-table td:nth-child(2) { color: #9AA89F; font-size: 12px; }
+      .pp-table td:last-child { font-weight: 900; font-size: 18px; color: #1A2E23; text-align: left; }
+      .pp-periods { margin-bottom: 18px; }
+      .pp-periods-title { font-size: 13px; color: #5A6B62; font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid #E8E2D4; padding-bottom: 5px; }
+      .pp-period-row { font-size: 12px; color: #5A6B62; padding: 5px 0; border-bottom: 1px solid #F0EBE0; display: flex; justify-content: space-between; }
+      .pp-verse { text-align: center; font-size: 16px; font-weight: 700; color: #1F4A3A; line-height: 1.9; padding: 14px 0 10px; border-top: 1px solid #E8E2D4; }
+      .pp-footer { text-align: center; font-size: 11px; color: #9AA89F; }
     }
 
-    @media (max-width: 400px) {
+    @media (max-width: 380px) {
       .total-number { font-size: 44px; }
-      .ctrl-btn { width: 34px; height: 34px; font-size: 20px; }
-      .count-display { font-size: 21px; min-width: 54px; }
+      .ctrl-btn { width: 32px; height: 32px; font-size: 18px; }
+      .count-display { font-size: 20px; min-width: 50px; }
+      .quick-btn { font-size: 12px; }
     }
   </style>
 </head>
 <body>
 
+<!-- ══ OFFLINE BANNER ══ -->
+<div class="offline-banner" id="offlineBanner">📵 لا يوجد اتصال — التطبيق يعمل بشكل كامل بدون إنترنت</div>
+
 <!-- ══ HEADER ══ -->
 <header class="header">
-  <div class="header-actions">
+  <div class="header-actions-right">
+    <button class="header-icon-btn" id="btnStats" title="الإحصائيات" aria-label="الإحصائيات">📊</button>
+  </div>
+  <div class="header-actions-left">
     <button class="header-icon-btn" id="btnReset" title="إعادة تعيين" aria-label="إعادة تعيين">↺</button>
   </div>
   <img class="mosque-icon" src="mosque-icon.svg" alt="مسجد"
-    onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><text y=%2250%22 font-size=%2248%22>🕌</text></svg>'" />
+    onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><text y=%2252%22 font-size=%2250%22>🕌</text></svg>'" />
   <h1 class="header-title">قضاء الصلوات</h1>
-  <p class="header-date" id="headerDate"></p>
+  <div class="header-dates">
+    <div class="header-date-greg" id="headerDateGreg"></div>
+    <div class="header-date-hijri" id="headerDateHijri"></div>
+  </div>
 </header>
+
+<!-- ══ TOTAL ══ -->
+<div class="total-section">
+  <div class="total-card">
+    <div class="total-number" id="totalNumber">0</div>
+    <div class="total-label">صلاة متبقية إجمالاً</div>
+    <div class="total-sub" id="totalSubLabel"></div>
+  </div>
+</div>
 
 <!-- ══ SCROLL AREA ══ -->
 <main class="scroll-area">
 
-  <!-- Total -->
-  <div class="total-card">
-    <div class="total-number" id="totalNumber">0</div>
-    <div class="total-label">صلاة متبقية إجمالاً</div>
+  <!-- Notify Banner -->
+  <div class="notify-banner" id="notifyBanner" style="display:none">
+    <span class="notify-banner-text">فعّل الإشعارات لتلقي تذكير يومي عند الساعة 8 مساءً</span>
+    <button class="notify-banner-btn" id="btnEnableNotify">تفعيل</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-card" id="statsSection" style="display:none">
+    <div class="sec-title">الإحصائيات</div>
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-lbl">إجمالي<br>المتبقية</div>
+      </div>
+      <div class="stat-box gold">
+        <div class="stat-num" id="statPerPrayer">0</div>
+        <div class="stat-lbl">متوسط<br>لكل صلاة</div>
+      </div>
+      <div class="stat-box green">
+        <div class="stat-num" id="statDays">0</div>
+        <div class="stat-lbl">عدد<br>الأيام</div>
+      </div>
+    </div>
+    <div class="progress-bar-wrap" id="progressWrap" style="display:none">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progressLabel"></div>
   </div>
 
   <div class="section-gap"></div>
 
-  <!-- Notify Banner -->
-  <div class="notify-banner" id="notifyBanner" style="display:none">
-    <span class="notify-banner-text">فعّل الإشعارات لتلقي تذكير يومي بالصلوات الفائتة</span>
-    <button class="notify-banner-btn" id="btnEnableNotify">تفعيل</button>
-  </div>
-
   <!-- Prayers Card -->
   <div class="prayers-card" id="prayersCard"></div>
+
+  <!-- Quick Add -->
+  <div class="quick-card">
+    <div class="quick-title">إضافة سريعة لجميع الصلوات</div>
+    <div class="quick-row">
+      <button class="quick-btn" onclick="quickAddAll(1)">+1<span>يوم</span></button>
+      <button class="quick-btn" onclick="quickAddAll(7)">+7<span>أسبوع</span></button>
+      <button class="quick-btn" onclick="quickAddAll(30)">+30<span>شهر</span></button>
+      <button class="quick-btn" onclick="quickAddAll(365)">+365<span>سنة</span></button>
+    </div>
+  </div>
 
   <!-- Verse -->
   <div class="verse-card">
     <p class="verse-text">﴿ وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ ﴾</p>
-    <p class="app-tag">تطبيق قضاء الصلوات</p>
+    <p class="app-tag">تطبيق قضاء الصلوات — يعمل بدون إنترنت</p>
   </div>
 
   <p class="tip">اضغط على الرقم لتعديله مباشرةً</p>
@@ -459,7 +590,7 @@
   <button class="fab-btn fab-share" id="btnShare">
     <span>⎙</span><span>مشاركة التقرير</span>
   </button>
-  <button class="fab-btn fab-calc" id="btnCalc" title="حاسبة السنوات" aria-label="حاسبة السنوات">🗓</button>
+  <button class="fab-btn fab-calc" id="btnCalc" title="حاسبة الصلوات" aria-label="حاسبة الصلوات">🗓</button>
 </div>
 
 <!-- ══ EDIT MODAL ══ -->
@@ -474,6 +605,19 @@
   </div>
 </div>
 
+<!-- ══ RESET CONFIRM ══ -->
+<div class="confirm-overlay" id="confirmReset" role="dialog" aria-modal="true">
+  <div class="confirm-card">
+    <div class="confirm-icon">⚠️</div>
+    <div class="confirm-title">إعادة تعيين الكل؟</div>
+    <div class="confirm-msg">سيتم مسح جميع أرقام الصلوات وإعادتها إلى الصفر. هذا الإجراء لا يمكن التراجع عنه.</div>
+    <div class="confirm-btns">
+      <button class="confirm-btn confirm-btn-cancel" id="resetCancel">إلغاء</button>
+      <button class="confirm-btn confirm-btn-ok" id="resetConfirm">تأكيد الحذف</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ SHARE SHEET ══ -->
 <div class="sheet-overlay" id="shareSheet" role="dialog" aria-modal="true">
   <div class="sheet">
@@ -482,13 +626,13 @@
       <span class="sheet-title">مشاركة التقرير</span>
       <div style="width:34px"></div>
     </div>
-    <div class="sheet-body" style="align-items:center;display:flex;flex-direction:column;gap:12px">
+    <div class="sheet-body" style="display:flex;flex-direction:column;align-items:center;gap:12px">
       <div class="shareable-card" id="shareableCard"></div>
       <div class="share-actions">
-        <button class="share-action-btn btn-share-text" id="btnShareText">⎙ مشاركة نص</button>
-        <button class="share-action-btn btn-share-pdf"  id="btnSharePdf">📄 تصدير PDF</button>
+        <button class="share-action-btn btn-share-text" id="btnShareText">⎙ مشاركة</button>
+        <button class="share-action-btn btn-share-pdf"  id="btnSharePdf">📄 PDF</button>
       </div>
-      <p class="share-hint">PDF يُفتح في المتصفح — اختر "حفظ كـ PDF" من قائمة الطباعة</p>
+      <p class="share-hint">اختر "حفظ كـ PDF" عند فتح نافذة الطباعة</p>
     </div>
   </div>
 </div>
@@ -498,14 +642,14 @@
   <div class="sheet">
     <div class="sheet-header">
       <button class="sheet-icon-btn sheet-btn-close" id="calcSheetClose" aria-label="إغلاق">✕</button>
-      <span class="sheet-title">حاسبة فترات الغياب</span>
+      <span class="sheet-title">حاسبة الصلوات الفائتة</span>
       <div style="width:34px"></div>
     </div>
     <div class="sheet-body" id="calcSheetBody"></div>
   </div>
 </div>
 
-<!-- ══ PRINT AREA (hidden, shown only on print) ══ -->
+<!-- ══ PRINT AREA ══ -->
 <div id="printArea" style="display:none"></div>
 
 <script>
@@ -513,8 +657,9 @@
 // ══════════════════════════════════════════════
 //  CONSTANTS
 // ══════════════════════════════════════════════
-const STORAGE_KEY = 'prayer_tracker_data_v2';
-const CALC_KEY    = 'prayer_calc_periods_v1';
+const STORAGE_KEY   = 'prayer_tracker_v3';
+const CALC_KEY      = 'prayer_calc_v2';
+const PRAYED_KEY    = 'prayer_prayed_v1'; // track how many already prayed
 
 const PRAYERS = [
   { id: 'fajr',    name: 'الفجر',   time: 'قبل الشروق'   },
@@ -528,15 +673,18 @@ const PRAYERS = [
 //  STATE
 // ══════════════════════════════════════════════
 let state = {
-  version: 2,
+  version: 3,
   lastUpdated: new Date().toISOString(),
   lastInteractionDate: '',
   prayers: { fajr:0, dhuhr:0, asr:0, maghrib:0, isha:0 },
+  prayedTotal: 0,     // lifetime prayed count (for stats)
+  originalTotal: 0,   // snapshot when first calculated (optional)
 };
 
-// Calculator periods: [{from: number, to: number}]
-// "from" = age when stopped praying, "to" = age when resumed
+// Calculator: array of { mode:'date'|'age', from, to }
 let calcPeriods = [];
+let calcMode = 'date'; // 'date' | 'age'
+let showStats = false;
 
 // ══════════════════════════════════════════════
 //  STORAGE
@@ -545,63 +693,96 @@ function loadData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
-      state = { ...state, ...parsed, prayers: { ...state.prayers, ...parsed.prayers } };
+      const p = JSON.parse(raw);
+      state = { ...state, ...p, prayers: { ...state.prayers, ...(p.prayers || {}) } };
     }
-    const rawCalc = localStorage.getItem(CALC_KEY);
-    if (rawCalc) calcPeriods = JSON.parse(rawCalc);
+    const rc = localStorage.getItem(CALC_KEY);
+    if (rc) {
+      const parsed = JSON.parse(rc);
+      calcPeriods = parsed.periods || [];
+      calcMode    = parsed.mode    || 'date';
+    }
   } catch { /* ignore */ }
 }
 
 function saveData() {
   try {
     state.lastUpdated = new Date().toISOString();
-    state.lastInteractionDate = new Date().toISOString().split('T')[0];
+    state.lastInteractionDate = todayStr();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch { /* ignore */ }
 }
 
-function saveCalcPeriods() {
-  try { localStorage.setItem(CALC_KEY, JSON.stringify(calcPeriods)); } catch { /* ignore */ }
+function saveCalc() {
+  try { localStorage.setItem(CALC_KEY, JSON.stringify({ periods: calcPeriods, mode: calcMode })); } catch { /* ignore */ }
 }
 
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
 // ══════════════════════════════════════════════
-//  PRAYER COUNTER LOGIC
+//  COUNTER LOGIC
 // ══════════════════════════════════════════════
-function updateCount(prayerId, delta) {
-  const next = (state.prayers[prayerId] ?? 0) + delta;
+function updateCount(id, delta) {
+  const next = (state.prayers[id] ?? 0) + delta;
   if (next < 0) return;
-  state.prayers[prayerId] = next;
-  saveData(); renderCounters(); renderTotal();
+  // If decrementing, track as "prayed"
+  if (delta < 0) state.prayedTotal = (state.prayedTotal || 0) + Math.abs(delta);
+  state.prayers[id] = next;
+  saveData(); renderCounters(); renderTotal(); renderStats();
 }
 
-function setCount(prayerId, value) {
-  state.prayers[prayerId] = Math.max(0, parseInt(value, 10) || 0);
-  saveData(); renderCounters(); renderTotal();
+function setCount(id, val) {
+  const v = Math.max(0, parseInt(val, 10) || 0);
+  state.prayers[id] = v;
+  saveData(); renderCounters(); renderTotal(); renderStats();
 }
 
-function addToPrayers(perPrayer) {
-  // perPrayer = total days per each prayer type
+function addToPrayers(daysPerPrayer) {
   PRAYERS.forEach(p => {
-    state.prayers[p.id] = (state.prayers[p.id] ?? 0) + Math.round(perPrayer);
+    state.prayers[p.id] = (state.prayers[p.id] ?? 0) + Math.round(daysPerPrayer);
   });
-  saveData(); renderCounters(); renderTotal();
+  if (!state.originalTotal) state.originalTotal = getTotal();
+  saveData(); renderCounters(); renderTotal(); renderStats();
+}
+
+function quickAddAll(days) {
+  addToPrayers(days);
 }
 
 function resetAll() {
-  if (!confirm('هل تريد إعادة تعيين جميع الصلوات إلى الصفر؟')) return;
   PRAYERS.forEach(p => { state.prayers[p.id] = 0; });
-  saveData(); renderCounters(); renderTotal();
+  state.prayedTotal = 0; state.originalTotal = 0;
+  saveData(); renderCounters(); renderTotal(); renderStats();
 }
 
 // ══════════════════════════════════════════════
-//  RENDER – MAIN
+//  RENDER
 // ══════════════════════════════════════════════
 function getTotal() { return Object.values(state.prayers).reduce((s,v) => s+v, 0); }
 function fmtAr(n)   { return Math.round(n).toLocaleString('ar-EG'); }
+function fmtYrs(days) {
+  const yrs = days / 365.25;
+  if (yrs >= 1) return `(${yrs.toFixed(1)} سنة)`;
+  const months = days / 30.44;
+  if (months >= 1) return `(${months.toFixed(0)} شهر)`;
+  return `(${Math.round(days)} يوم)`;
+}
 
 function renderTotal() {
-  document.getElementById('totalNumber').textContent = fmtAr(getTotal());
+  const total = getTotal();
+  document.getElementById('totalNumber').textContent = fmtAr(total);
+  // Sub label: approximate years
+  if (total > 0) {
+    const daysPerPrayer = total / 5;
+    const yrs = daysPerPrayer / 365.25;
+    if (yrs >= 0.5) {
+      document.getElementById('totalSubLabel').textContent = `≈ ${yrs.toFixed(1)} سنة من الصلوات`;
+    } else {
+      document.getElementById('totalSubLabel').textContent = `≈ ${Math.round(daysPerPrayer)} يوم لكل صلاة`;
+    }
+  } else {
+    document.getElementById('totalSubLabel').textContent = 'لا توجد صلوات فائتة مسجلة';
+  }
 }
 
 function renderCounters() {
@@ -613,10 +794,31 @@ function renderCounters() {
   });
 }
 
+function renderStats() {
+  const total = getTotal();
+  document.getElementById('statTotal').textContent = fmtAr(total);
+  document.getElementById('statPerPrayer').textContent = fmtAr(total / 5);
+  document.getElementById('statDays').textContent = fmtAr(total / 5);
+
+  // Progress bar
+  const prayed = state.prayedTotal || 0;
+  const original = state.originalTotal || 0;
+  if (original > 0 && prayed > 0) {
+    const pct = Math.min(100, (prayed / (original + prayed)) * 100);
+    document.getElementById('progressWrap').style.display = 'block';
+    document.getElementById('progressFill').style.width = pct.toFixed(1) + '%';
+    document.getElementById('progressLabel').textContent =
+      `قضيت ${fmtAr(prayed)} صلاة — ${pct.toFixed(0)}% من الإجمالي`;
+  } else {
+    document.getElementById('progressWrap').style.display = 'none';
+    document.getElementById('progressLabel').textContent = '';
+  }
+}
+
 function buildPrayersCard() {
   const card = document.getElementById('prayersCard');
   card.innerHTML = '';
-  PRAYERS.forEach(p => {
+  PRAYERS.forEach((p, idx) => {
     const row = document.createElement('div');
     row.className = 'prayer-row';
     row.innerHTML = `
@@ -630,12 +832,43 @@ function buildPrayersCard() {
         <button class="ctrl-btn ctrl-decrement" id="dec_${p.id}" aria-label="إنقاص ${p.name}" disabled>−</button>
       </div>`;
     card.appendChild(row);
-    row.querySelector('#inc_' + p.id).addEventListener('click', () => updateCount(p.id, 1));
-    row.querySelector('#dec_' + p.id).addEventListener('click', () => updateCount(p.id, -1));
-    const cntEl = row.querySelector('#cnt_' + p.id);
+    document.getElementById('inc_' + p.id).addEventListener('click', () => updateCount(p.id, 1));
+    document.getElementById('dec_' + p.id).addEventListener('click', () => updateCount(p.id, -1));
+    const cntEl = document.getElementById('cnt_' + p.id);
     cntEl.addEventListener('click', () => openEditModal(p));
     cntEl.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') openEditModal(p); });
   });
+}
+
+// ══════════════════════════════════════════════
+//  DATES — GREGORIAN + HIJRI
+// ══════════════════════════════════════════════
+function renderDate() {
+  const now = new Date();
+  // Gregorian
+  const greg = now.toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric', calendar:'gregory' });
+  document.getElementById('headerDateGreg').textContent = greg;
+  // Hijri
+  try {
+    const hijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    }).format(now);
+    document.getElementById('headerDateHijri').textContent = '🌙 ' + hijri;
+  } catch {
+    document.getElementById('headerDateHijri').textContent = '';
+  }
+}
+
+function getDateStrings() {
+  const now = new Date();
+  const greg = now.toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
+  let hijri = '';
+  try {
+    hijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    }).format(now);
+  } catch { hijri = ''; }
+  return { greg, hijri };
 }
 
 // ══════════════════════════════════════════════
@@ -648,50 +881,92 @@ function openEditModal(prayer) {
   document.getElementById('editModalTitle').textContent = 'تعديل عدد ' + prayer.name;
   document.getElementById('editInput').value = state.prayers[prayer.id] ?? 0;
   document.getElementById('editModal').classList.add('open');
-  setTimeout(() => document.getElementById('editInput').focus(), 120);
+  setTimeout(() => { const el = document.getElementById('editInput'); if(el){ el.focus(); el.select(); } }, 150);
 }
-function closeEditModal() {
-  document.getElementById('editModal').classList.remove('open');
-  currentEditId = null;
-}
+function closeEditModal() { document.getElementById('editModal').classList.remove('open'); currentEditId = null; }
 function confirmEdit() {
   if (!currentEditId) return;
   setCount(currentEditId, document.getElementById('editInput').value);
   closeEditModal();
 }
-
 document.getElementById('editCancel').addEventListener('click', closeEditModal);
 document.getElementById('editConfirm').addEventListener('click', confirmEdit);
 document.getElementById('editInput').addEventListener('keydown', e => {
   if (e.key==='Enter') confirmEdit();
   if (e.key==='Escape') closeEditModal();
 });
-document.getElementById('editModal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeEditModal();
+document.getElementById('editModal').addEventListener('click', e => { if (e.target===e.currentTarget) closeEditModal(); });
+
+// ══════════════════════════════════════════════
+//  RESET CONFIRM
+// ══════════════════════════════════════════════
+document.getElementById('btnReset').addEventListener('click', () => {
+  document.getElementById('confirmReset').classList.add('open');
+});
+document.getElementById('resetCancel').addEventListener('click', () => {
+  document.getElementById('confirmReset').classList.remove('open');
+});
+document.getElementById('resetConfirm').addEventListener('click', () => {
+  document.getElementById('confirmReset').classList.remove('open');
+  resetAll();
+});
+document.getElementById('confirmReset').addEventListener('click', e => {
+  if (e.target===e.currentTarget) document.getElementById('confirmReset').classList.remove('open');
+});
+
+// ══════════════════════════════════════════════
+//  STATS TOGGLE
+// ══════════════════════════════════════════════
+document.getElementById('btnStats').addEventListener('click', () => {
+  showStats = !showStats;
+  document.getElementById('statsSection').style.display = showStats ? 'block' : 'none';
+  document.getElementById('btnStats').style.background = showStats ? 'rgba(197,160,40,0.35)' : 'rgba(197,160,40,0.18)';
+  if (showStats) renderStats();
 });
 
 // ══════════════════════════════════════════════
 //  SHARE SHEET
 // ══════════════════════════════════════════════
 function buildShareableCard() {
-  const dateStr = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
+  const { greg, hijri } = getDateStrings();
   const rows = PRAYERS.map(p => `
     <div class="sc-row">
-      <div><div class="sc-row-name">${p.name}</div><div class="sc-row-time">${p.time}</div></div>
+      <div>
+        <div class="sc-row-name">${p.name}</div>
+        <div class="sc-row-time">${p.time}</div>
+      </div>
       <div class="sc-row-count">${fmtAr(state.prayers[p.id] ?? 0)}</div>
     </div>`).join('');
+
+  const total = getTotal();
+  const prayed = state.prayedTotal || 0;
+  const original = state.originalTotal || 0;
+  let progressHtml = '';
+  if (original > 0 && prayed > 0) {
+    const pct = Math.min(100, (prayed / (original + prayed)) * 100);
+    progressHtml = `
+      <div class="sc-progress-wrap">
+        <div class="sc-progress-bar">
+          <div class="sc-progress-fill" style="width:${pct.toFixed(1)}%"></div>
+        </div>
+        <div class="sc-progress-lbl">قضيت ${fmtAr(prayed)} صلاة — ${pct.toFixed(0)}% من الهدف</div>
+      </div>`;
+  }
+
   document.getElementById('shareableCard').innerHTML = `
     <div class="sc-header">
       <img class="sc-icon" src="mosque-icon.svg" alt="🕌"
-        onerror="this.outerHTML='<div style=&quot;font-size:48px;margin-bottom:6px&quot;>🕌</div>'"/>
+        onerror="this.outerHTML='<div style=&quot;font-size:44px;margin-bottom:5px&quot;>🕌</div>'"/>
       <div class="sc-title">قضاء الصلوات</div>
-      <div class="sc-date">${dateStr}</div>
+      <div class="sc-date-greg">${greg}</div>
+      ${hijri ? `<div class="sc-date-hijri">🌙 ${hijri}</div>` : ''}
     </div>
     <div class="sc-total-box">
-      <div class="sc-total-num">${fmtAr(getTotal())}</div>
+      <div class="sc-total-num">${fmtAr(total)}</div>
       <div class="sc-total-lbl">صلاة متبقية إجمالاً</div>
     </div>
-    <div class="sc-rows-card"><div class="sc-rows">${rows}</div></div>
+    <div class="sc-rows-card">${rows}</div>
+    ${progressHtml}
     <div class="sc-verse">﴿ وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ ﴾</div>
     <div class="sc-app-tag">تطبيق قضاء الصلوات</div>`;
 }
@@ -704,188 +979,221 @@ document.getElementById('shareSheetClose').addEventListener('click', () => {
   document.getElementById('shareSheet').classList.remove('open');
 });
 document.getElementById('shareSheet').addEventListener('click', e => {
-  if (e.target === e.currentTarget)
-    document.getElementById('shareSheet').classList.remove('open');
+  if (e.target===e.currentTarget) document.getElementById('shareSheet').classList.remove('open');
 });
 
-// Share as text
+// Share text
 document.getElementById('btnShareText').addEventListener('click', async () => {
-  const dateStr = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
-  const lines = PRAYERS.map(p => `${p.name}: ${state.prayers[p.id]??0} صلاة`).join('\n');
+  const { greg, hijri } = getDateStrings();
+  const lines = PRAYERS.map(p => `${p.name}: ${(state.prayers[p.id]??0).toLocaleString('ar-EG')} صلاة`).join('\n');
+  const prayed = state.prayedTotal || 0;
+  const progressLine = prayed > 0 ? `\n✅ تم قضاء: ${prayed.toLocaleString('ar-EG')} صلاة` : '';
   const text = [
-    `🕌 قضاء الصلوات — ${dateStr}`,
+    `🕌 قضاء الصلوات`,
+    `📅 ${greg}`,
+    hijri ? `🌙 ${hijri}` : '',
     ``,
-    `إجمالي الصلوات المتبقية: ${getTotal()}`,
+    `إجمالي الصلوات المتبقية: ${getTotal().toLocaleString('ar-EG')}`,
+    progressLine,
     ``,
     lines,
     ``,
     `﴿ وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ ﴾`,
     `تطبيق قضاء الصلوات`,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
+
   if (navigator.share) {
     try { await navigator.share({ title:'تقرير الصلوات الفائتة', text }); } catch { /* cancelled */ }
   } else {
-    try { await navigator.clipboard.writeText(text); alert('تم نسخ التقرير! يمكنك لصقه في أي تطبيق.'); }
+    try { await navigator.clipboard.writeText(text); alert('تم نسخ التقرير!'); }
     catch { alert(text); }
   }
 });
 
 // ══════════════════════════════════════════════
-//  PDF EXPORT via browser print
+//  PDF EXPORT
 // ══════════════════════════════════════════════
 document.getElementById('btnSharePdf').addEventListener('click', () => {
   generatePrintArea();
   document.getElementById('shareSheet').classList.remove('open');
-  setTimeout(() => window.print(), 300);
+  setTimeout(() => window.print(), 350);
 });
 
 function generatePrintArea() {
-  const dateStr = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
+  const { greg, hijri } = getDateStrings();
+  const total = getTotal();
+  const prayed = state.prayedTotal || 0;
+  const original = state.originalTotal || 0;
 
-  // Build periods section for PDF if available
+  // Stats boxes
+  const statsHtml = `
+    <div class="pp-stats">
+      <div class="pp-stat">
+        <div class="pp-stat-num">${total.toLocaleString('ar-EG')}</div>
+        <div class="pp-stat-lbl">إجمالي المتبقية</div>
+      </div>
+      <div class="pp-stat">
+        <div class="pp-stat-num">${Math.round(total/5).toLocaleString('ar-EG')}</div>
+        <div class="pp-stat-lbl">لكل صلاة</div>
+      </div>
+      ${prayed > 0 ? `<div class="pp-stat">
+        <div class="pp-stat-num">${prayed.toLocaleString('ar-EG')}</div>
+        <div class="pp-stat-lbl">تم قضاؤها</div>
+      </div>` : ''}
+    </div>`;
+
+  // Periods
+  const validPeriods = calcPeriods.filter(p => {
+    if (calcMode === 'date') return p.from && p.to && new Date(p.to) > new Date(p.from);
+    return p.from && p.to && parseFloat(p.to) > parseFloat(p.from);
+  });
   let periodsHtml = '';
-  const validPeriods = calcPeriods.filter(p => p.from && p.to && p.to > p.from);
   if (validPeriods.length > 0) {
     const pRows = validPeriods.map(p => {
-      const yrs = p.to - p.from;
-      return `<div class="print-period-row">من عمر ${p.from} إلى ${p.to} سنة — ${yrs} سنة (${Math.round(yrs*365)} يوم)</div>`;
+      if (calcMode === 'date') {
+        const days = Math.floor((new Date(p.to) - new Date(p.from)) / 86400000);
+        const fromLbl = new Date(p.from).toLocaleDateString('ar-SA', {year:'numeric',month:'long',day:'numeric'});
+        const toLbl   = new Date(p.to  ).toLocaleDateString('ar-SA', {year:'numeric',month:'long',day:'numeric'});
+        return `<div class="pp-period-row"><span>من ${fromLbl} إلى ${toLbl}</span><span>${days.toLocaleString('ar-EG')} يوم</span></div>`;
+      } else {
+        const yrs = parseFloat(p.to) - parseFloat(p.from);
+        return `<div class="pp-period-row"><span>من عمر ${p.from} إلى ${p.to} سنة</span><span>${Math.round(yrs*365.25).toLocaleString('ar-EG')} يوم</span></div>`;
+      }
     }).join('');
-    periodsHtml = `
-      <div class="print-periods">
-        <div class="print-periods-title">فترات الغياب المحتسبة:</div>
-        ${pRows}
-      </div>`;
+    periodsHtml = `<div class="pp-periods">
+      <div class="pp-periods-title">📅 فترات الغياب المحتسبة</div>${pRows}
+    </div>`;
   }
 
+  // Table
   const tableRows = PRAYERS.map(p => `
     <tr>
       <td>${p.name}</td>
-      <td style="color:#9AA89F;font-size:12px">${p.time}</td>
+      <td>${p.time}</td>
       <td style="text-align:left">${(state.prayers[p.id]??0).toLocaleString('ar-EG')}</td>
     </tr>`).join('');
 
   document.getElementById('printArea').innerHTML = `
-    <div class="print-page">
-      <div class="print-header">
-        <div class="print-mosque">🕌</div>
-        <div class="print-main-title">قضاء الصلوات</div>
-        <div class="print-date">${dateStr}</div>
+    <div class="pp">
+      <div class="pp-header">
+        <div class="pp-icon">🕌</div>
+        <div class="pp-main-title">قضاء الصلوات</div>
+        <div class="pp-date">${greg}</div>
+        ${hijri ? `<div class="pp-date-hijri">🌙 ${hijri}</div>` : ''}
       </div>
-      <div class="print-total-box">
-        <div class="print-total-num">${getTotal().toLocaleString('ar-EG')}</div>
-        <div class="print-total-lbl">صلاة متبقية إجمالاً</div>
+      <div class="pp-total">
+        <div class="pp-total-num">${total.toLocaleString('ar-EG')}</div>
+        <div class="pp-total-lbl">صلاة متبقية إجمالاً</div>
       </div>
-      <table class="print-table">
-        <thead>
-          <tr>
-            <th>الصلاة</th>
-            <th>الوقت</th>
-            <th style="text-align:left">العدد</th>
-          </tr>
-        </thead>
+      ${statsHtml}
+      <table class="pp-table">
+        <thead><tr><th>الصلاة</th><th>الوقت</th><th style="text-align:left">العدد</th></tr></thead>
         <tbody>${tableRows}</tbody>
       </table>
       ${periodsHtml}
-      <div class="print-verse">﴿ وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ ﴾</div>
-      <div class="print-footer">تطبيق قضاء الصلوات — ${dateStr}</div>
+      <div class="pp-verse">﴿ وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ ﴾</div>
+      <div class="pp-footer">تطبيق قضاء الصلوات — ${greg}</div>
     </div>`;
 }
 
 // ══════════════════════════════════════════════
-//  YEARS CALCULATOR SHEET
+//  CALCULATOR SHEET
 // ══════════════════════════════════════════════
-function openCalcSheet() {
+document.getElementById('btnCalc').addEventListener('click', () => {
   renderCalcSheet();
   document.getElementById('calcSheet').classList.add('open');
-}
-
-function closeCalcSheet() {
+});
+document.getElementById('calcSheetClose').addEventListener('click', () => {
   document.getElementById('calcSheet').classList.remove('open');
-}
-
-document.getElementById('btnCalc').addEventListener('click', openCalcSheet);
-document.getElementById('calcSheetClose').addEventListener('click', closeCalcSheet);
+});
 document.getElementById('calcSheet').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeCalcSheet();
+  if (e.target===e.currentTarget) document.getElementById('calcSheet').classList.remove('open');
 });
 
 function addPeriod() {
-  calcPeriods.push({ from: '', to: '' });
-  saveCalcPeriods();
-  renderCalcSheet();
+  calcPeriods.push({ from:'', to:'' });
+  saveCalc(); renderCalcSheet();
+}
+function removePeriod(i) {
+  calcPeriods.splice(i, 1);
+  saveCalc(); renderCalcSheet();
+}
+function updatePeriod(i, field, val) {
+  calcPeriods[i][field] = val;
+  saveCalc(); renderCalcResult();
+}
+function switchMode(mode) {
+  calcMode = mode; saveCalc(); renderCalcSheet();
 }
 
-function removePeriod(index) {
-  calcPeriods.splice(index, 1);
-  saveCalcPeriods();
-  renderCalcSheet();
-}
-
-function updatePeriod(index, field, value) {
-  calcPeriods[index][field] = value === '' ? '' : parseFloat(value) || '';
-  saveCalcPeriods();
-  // Re-render only the result area to avoid losing focus
-  renderCalcResult();
-}
-
-function calcTotalDays() {
-  let totalDays = 0;
-  const errors = [];
-  const validPeriods = [];
-
+// ── Date-based calc ──
+function calcFromDates() {
+  let totalDays = 0; const errors = []; const valid = [];
   calcPeriods.forEach((p, i) => {
-    const from = parseFloat(p.from);
-    const to   = parseFloat(p.to);
-
-    if (isNaN(from) || isNaN(to)) return; // skip incomplete
-    if (from < 0 || to < 0)       { errors.push(`الفترة ${i+1}: الأعمار يجب أن تكون موجبة`); return; }
-    if (from >= to)                { errors.push(`الفترة ${i+1}: عمر العودة يجب أن يكون أكبر من عمر الترك`); return; }
-    if (from < 7)                  { errors.push(`الفترة ${i+1}: عمر الترك غير منطقي (أقل من 7 سنوات)`); return; }
-    if (to - from > 80)            { errors.push(`الفترة ${i+1}: الفترة تبدو طويلة جداً، تأكد من الأرقام`); return; }
-
-    const days = (to - from) * 365.25;
+    if (!p.from || !p.to) return;
+    const f = new Date(p.from); const t = new Date(p.to);
+    if (isNaN(f) || isNaN(t)) { errors.push(`الفترة ${i+1}: تاريخ غير صالح`); return; }
+    if (t <= f) { errors.push(`الفترة ${i+1}: تاريخ العودة يجب أن يكون بعد تاريخ الترك`); return; }
+    const days = Math.floor((t - f) / 86400000);
+    if (days > 36500) { errors.push(`الفترة ${i+1}: مدة غير منطقية (أكثر من 100 سنة)`); return; }
     totalDays += days;
-    validPeriods.push({ from, to, days });
+    valid.push({ from: p.from, to: p.to, days,
+      fromLbl: f.toLocaleDateString('ar-SA',{year:'numeric',month:'short',day:'numeric'}),
+      toLbl:   t.toLocaleDateString('ar-SA',{year:'numeric',month:'short',day:'numeric'}) });
   });
+  return { totalDays, errors, valid };
+}
 
-  return { totalDays, errors, validPeriods };
+// ── Age-based calc ──
+function calcFromAges() {
+  let totalDays = 0; const errors = []; const valid = [];
+  calcPeriods.forEach((p, i) => {
+    const f = parseFloat(p.from); const t = parseFloat(p.to);
+    if (isNaN(f) || isNaN(t)) return;
+    if (f < 7)   { errors.push(`الفترة ${i+1}: عمر الترك لا يُعقل (أقل من 7)`); return; }
+    if (t <= f)  { errors.push(`الفترة ${i+1}: عمر العودة يجب أن يكون أكبر`); return; }
+    if (t-f > 80){ errors.push(`الفترة ${i+1}: الفترة طويلة جداً`); return; }
+    const days = (t - f) * 365.25;
+    totalDays += days;
+    valid.push({ from: p.from, to: p.to, days,
+      fromLbl: `عمر ${p.from}`, toLbl: `عمر ${p.to}` });
+  });
+  return { totalDays, errors, valid };
 }
 
 function renderCalcResult() {
   const resultEl = document.getElementById('calcResultArea');
   if (!resultEl) return;
 
-  const { totalDays, errors, validPeriods } = calcTotalDays();
+  const { totalDays, errors, valid } = calcMode === 'date' ? calcFromDates() : calcFromAges();
   const totalPrayers = Math.round(totalDays) * 5;
   const perPrayer    = Math.round(totalDays);
-  const hasValid = validPeriods.length > 0;
+  const hasValid = valid.length > 0;
 
   let html = '';
-
-  if (errors.length > 0) {
-    html += errors.map(e => `<div class="calc-error">⚠️ ${e}</div>`).join('');
-  }
+  if (errors.length > 0) html += errors.map(e => `<div class="calc-error">⚠️ ${e}</div>`).join('');
 
   if (hasValid) {
+    const daysRounded = Math.round(totalDays);
     html += `
       <div class="calc-result">
         <div class="calc-result-num">${totalPrayers.toLocaleString('ar-EG')}</div>
         <div class="calc-result-lbl">إجمالي الصلوات المحتسبة</div>
+        <div class="calc-result-sub">${daysRounded.toLocaleString('ar-EG')} يوم × 5 صلوات ${fmtYrs(daysRounded)}</div>
       </div>
       <div class="calc-breakdown">`;
 
-    validPeriods.forEach(p => {
-      const yrs = (p.to - p.from).toFixed(p.to - p.from === Math.round(p.to - p.from) ? 0 : 1);
+    valid.forEach(p => {
+      const prayers = Math.round(p.days * 5);
       html += `
         <div class="calc-breakdown-row">
-          <span class="calc-breakdown-name">من ${p.from} إلى ${p.to} سنة</span>
-          <span class="calc-breakdown-val">${Math.round(p.days * 5).toLocaleString('ar-EG')} صلاة</span>
+          <span class="calc-breakdown-name">${p.fromLbl} → ${p.toLbl}</span>
+          <span class="calc-breakdown-val">${prayers.toLocaleString('ar-EG')} صلاة</span>
         </div>`;
     });
-
-    if (validPeriods.length > 1) {
+    if (valid.length > 1) {
       html += `
-        <div class="calc-breakdown-row" style="background:rgba(31,74,58,0.05)">
+        <div class="calc-breakdown-row" style="background:var(--info-bg)">
           <span class="calc-breakdown-name" style="color:var(--text-muted)">لكل صلاة واحدة</span>
           <span class="calc-breakdown-val">${perPrayer.toLocaleString('ar-EG')} يوم</span>
         </div>`;
@@ -893,83 +1201,103 @@ function renderCalcResult() {
     html += `</div>`;
   }
 
-  html += `
-    <button class="calc-add-btn" id="calcAddBtn" ${!hasValid || errors.length ? 'disabled' : ''}>
-      ＋ إضافة ${hasValid ? totalPrayers.toLocaleString('ar-EG') : ''} صلاة للعداد
-    </button>`;
+  html += `<button class="calc-add-btn" id="calcAddBtn" ${!hasValid||errors.length?'disabled':''}>
+    ＋ إضافة ${hasValid ? totalPrayers.toLocaleString('ar-EG') : ''} صلاة للعداد
+  </button>`;
 
   resultEl.innerHTML = html;
 
   if (hasValid && !errors.length) {
     document.getElementById('calcAddBtn').addEventListener('click', () => {
-      if (!confirm(`هل تريد إضافة ${totalPrayers.toLocaleString('ar-EG')} صلاة موزعةً على الصلوات الخمس؟`)) return;
+      if (!confirm(`إضافة ${totalPrayers.toLocaleString('ar-EG')} صلاة موزعةً على الصلوات الخمس؟`)) return;
+      if (!state.originalTotal) state.originalTotal = getTotal() + totalPrayers;
       addToPrayers(perPrayer);
-      closeCalcSheet();
+      document.getElementById('calcSheet').classList.remove('open');
     });
+  }
+}
+
+function periodNoteHtml(p) {
+  if (calcMode === 'date') {
+    if (!p.from || !p.to) return 'اختر تاريخ الترك وتاريخ العودة';
+    const f = new Date(p.from); const t = new Date(p.to);
+    if (isNaN(f)||isNaN(t)||t<=f) return 'تأكد من صحة التواريخ';
+    const days = Math.floor((t - f) / 86400000);
+    const prayers = Math.round(days * 5);
+    return `📅 ${days.toLocaleString('ar-EG')} يوم × 5 = <strong>${prayers.toLocaleString('ar-EG')} صلاة</strong>`;
+  } else {
+    const f = parseFloat(p.from); const t = parseFloat(p.to);
+    if (isNaN(f)||isNaN(t)||t<=f) return 'أدخل عمر الترك وعمر العودة';
+    const days = Math.round((t - f) * 365.25);
+    const prayers = days * 5;
+    return `📅 ${days.toLocaleString('ar-EG')} يوم × 5 = <strong>${prayers.toLocaleString('ar-EG')} صلاة</strong>`;
   }
 }
 
 function renderCalcSheet() {
   const body = document.getElementById('calcSheetBody');
 
-  let periodsHtml = calcPeriods.map((p, i) => `
-    <div class="period-card" id="period_${i}">
-      <div class="period-label">الفترة ${i + 1}</div>
-      <button class="period-delete" onclick="removePeriod(${i})" aria-label="حذف الفترة">✕</button>
-      <div class="period-row">
-        <label>عمر الترك (سنة)</label>
-        <input class="period-input" type="number" inputmode="decimal" min="7" max="120"
-          placeholder="مثال: 15"
-          value="${p.from !== '' ? p.from : ''}"
-          onchange="updatePeriod(${i}, 'from', this.value)"
-          oninput="updatePeriod(${i}, 'from', this.value)" />
-      </div>
-      <div class="period-row">
-        <label>عمر العودة (سنة)</label>
-        <input class="period-input" type="number" inputmode="decimal" min="7" max="120"
-          placeholder="مثال: 20"
-          value="${p.to !== '' ? p.to : ''}"
-          onchange="updatePeriod(${i}, 'to', this.value)"
-          oninput="updatePeriod(${i}, 'to', this.value)" />
-      </div>
-      <div class="period-note">
-        ${(p.from && p.to && p.to > p.from)
-          ? `📅 ${p.to - p.from} سنة × 365 يوم × 5 صلوات = <strong>${Math.round((p.to - p.from) * 365.25 * 5).toLocaleString('ar-EG')} صلاة</strong>`
-          : 'أدخل عمر الترك وعمر العودة لحساب عدد الصلوات'}
-      </div>
-    </div>`).join('');
+  const introDate = `أدخل التاريخ الذي تركت فيه الصلاة والتاريخ الذي عدت فيه إليها.
+    يمكنك إضافة أكثر من فترة إذا تركت الصلاة في فترات متعددة.
+    <br><strong>مثال:</strong> تركت الصلاة في 2015/01/01 وعدت في 2018/06/15 = 1261 يوم × 5 = 6305 صلاة.`;
+  const introAge = `أدخل عمرك عند ترك الصلاة والعمر الذي عدت فيه.
+    <br><strong>مثال:</strong> تركت عمر 15 وعدت عمر 20 = 5 سنوات × 365 = 1826 يوم × 5 = 9130 صلاة.`;
+
+  const periodsHtml = calcPeriods.map((p, i) => {
+    if (calcMode === 'date') {
+      return `
+        <div class="period-card">
+          <div class="period-label">الفترة ${i+1}</div>
+          <button class="period-delete" onclick="removePeriod(${i})" aria-label="حذف">✕</button>
+          <div class="period-row">
+            <label>تاريخ الترك</label>
+            <input class="period-input" type="date" value="${p.from||''}"
+              onchange="updatePeriod(${i},'from',this.value)"
+              oninput="updatePeriod(${i},'from',this.value)" max="${todayStr()}" />
+          </div>
+          <div class="period-row">
+            <label>تاريخ العودة</label>
+            <input class="period-input" type="date" value="${p.to||''}"
+              onchange="updatePeriod(${i},'to',this.value)"
+              oninput="updatePeriod(${i},'to',this.value)" max="${todayStr()}" />
+          </div>
+          <div class="period-note">${periodNoteHtml(p)}</div>
+        </div>`;
+    } else {
+      return `
+        <div class="period-card">
+          <div class="period-label">الفترة ${i+1}</div>
+          <button class="period-delete" onclick="removePeriod(${i})" aria-label="حذف">✕</button>
+          <div class="period-row">
+            <label>عمر الترك (سنة)</label>
+            <input class="period-input" type="number" inputmode="decimal" min="7" max="120"
+              placeholder="مثال: 15" value="${p.from||''}"
+              onchange="updatePeriod(${i},'from',this.value)"
+              oninput="updatePeriod(${i},'from',this.value)" />
+          </div>
+          <div class="period-row">
+            <label>عمر العودة (سنة)</label>
+            <input class="period-input" type="number" inputmode="decimal" min="7" max="120"
+              placeholder="مثال: 20" value="${p.to||''}"
+              onchange="updatePeriod(${i},'to',this.value)"
+              oninput="updatePeriod(${i},'to',this.value)" />
+          </div>
+          <div class="period-note">${periodNoteHtml(p)}</div>
+        </div>`;
+    }
+  }).join('');
 
   body.innerHTML = `
-    <div class="calc-intro">
-      <strong>كيف تعمل الحاسبة؟</strong><br>
-      أدخل كل فترة توقفت فيها عن الصلاة — من العمر الذي تركت فيه الصلاة، إلى العمر الذي عدت فيه إليها.
-      ستحسب الحاسبة عدد الأيام × 5 صلوات يومياً وتضيف الناتج لعداد كل صلاة.<br><br>
-      <strong>مثال:</strong> تركت الصلاة عمر 15 وعدت عمر 20 = 5 سنوات × 365 = 1825 يوم لكل صلاة.
+    <div class="tab-bar">
+      <button class="tab-btn ${calcMode==='date'?'active':''}" onclick="switchMode('date')">📅 بالتاريخ</button>
+      <button class="tab-btn ${calcMode==='age'?'active':''}"  onclick="switchMode('age')">🎂 بالعمر</button>
     </div>
-
-    <div class="calc-section-title">📋 فترات الغياب</div>
+    <div class="calc-intro">${calcMode==='date' ? introDate : introAge}</div>
     ${periodsHtml}
-
-    <button class="add-period-btn" onclick="addPeriod()">＋ إضافة فترة جديدة</button>
-
-    <div id="calcResultArea"></div>
-  `;
+    <button class="add-period-btn" onclick="addPeriod()">＋ إضافة فترة</button>
+    <div id="calcResultArea"></div>`;
 
   renderCalcResult();
-}
-
-// ══════════════════════════════════════════════
-//  RESET
-// ══════════════════════════════════════════════
-document.getElementById('btnReset').addEventListener('click', resetAll);
-
-// ══════════════════════════════════════════════
-//  DATE
-// ══════════════════════════════════════════════
-function renderDate() {
-  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('ar-SA', {
-    year:'numeric', month:'long', day:'numeric',
-  });
 }
 
 // ══════════════════════════════════════════════
@@ -985,20 +1313,35 @@ document.getElementById('btnEnableNotify').addEventListener('click', async () =>
   if (!('Notification' in window)) return;
   const perm = await Notification.requestPermission();
   document.getElementById('notifyBanner').style.display = 'none';
-  if (perm === 'granted') maybeShowNotification();
+  if (perm === 'granted') scheduleNotification();
 });
 
-function maybeShowNotification() {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const today = new Date().toISOString().split('T')[0];
-  if (state.lastInteractionDate && state.lastInteractionDate >= today) return;
-  if (new Date().getHours() >= 20) {
-    new Notification('تذكير — قضاء الصلوات', {
-      body: 'هل قمت بتسجيل صلواتك الفائتة اليوم؟',
-      icon: 'mosque-icon.svg',
-    });
+function scheduleNotification() {
+  const now = new Date();
+  const tonight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0, 0);
+  const delay = tonight - now;
+  if (delay > 0 && delay < 86400000) {
+    setTimeout(() => {
+      const today = todayStr();
+      if (!state.lastInteractionDate || state.lastInteractionDate < today) {
+        new Notification('تذكير — قضاء الصلوات', {
+          body: 'هل قمت بتسجيل صلواتك الفائتة اليوم؟',
+          icon: 'mosque-icon.svg', dir: 'rtl', lang: 'ar',
+        });
+      }
+    }, delay);
   }
 }
+
+// ══════════════════════════════════════════════
+//  OFFLINE DETECTION
+// ══════════════════════════════════════════════
+function updateOnlineStatus() {
+  const banner = document.getElementById('offlineBanner');
+  banner.classList.toggle('show', !navigator.onLine);
+}
+window.addEventListener('online',  updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
 
 // ══════════════════════════════════════════════
 //  SERVICE WORKER
@@ -1015,8 +1358,10 @@ renderDate();
 buildPrayersCard();
 renderCounters();
 renderTotal();
+renderStats();
+updateOnlineStatus();
 checkNotifyBanner();
-maybeShowNotification();
+if (Notification.permission === 'granted') scheduleNotification();
 </script>
 </body>
 </html>
