@@ -1,9 +1,8 @@
 // ══════════════════════════════════════════
-// قضاء الصلوات — Service Worker v6
+// قضاء الصلوات — Service Worker v7
 // Offline-first + Daily 2PM Notification
 // ══════════════════════════════════════════
-const CACHE_NAME = 'qadaa-prayers-v6';
-const DATA_KEY   = 'prayer_tracker_v3';   // ← same key used by the app
+const CACHE_NAME = 'qadaa-prayers-v7';
 
 const APP_SHELL = [
   './',
@@ -17,40 +16,54 @@ const EXTERNAL = [
 ];
 
 // ── INSTALL ────────────────────────────────
+// ⚠ لا نستدعي skipWaiting() هنا — نتركها للمستخدم عبر الـ banner
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async cache => {
-      await cache.addAll(APP_SHELL);
+      // Cache each item individually to avoid one failure stopping the rest
+      await Promise.allSettled(
+        APP_SHELL.map(url => cache.add(url).catch(() => {}))
+      );
       await Promise.allSettled(
         EXTERNAL.map(url =>
           fetch(url, { mode: 'cors', credentials: 'omit' })
-            .then(res => { if (res.ok) cache.put(url, res); })
+            .then(res => { if (res && res.ok) cache.put(url, res); })
             .catch(() => {})
         )
       );
     })
   );
-  self.skipWaiting();
+  // لا نستدعي skipWaiting هنا — السيطرة تمر عند ضغط المستخدم على "تحديث"
 });
 
 // ── ACTIVATE ───────────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
-    // ⚠ Do NOT send SW_UPDATED to force reload — it caused perceived data loss.
-    // The app will silently load the new cached version on next navigation.
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(async () => {
+        // أخبر جميع الصفحات المفتوحة بأن الـ SW الجديد فعّال
+        const clients = await self.clients.matchAll({ type: 'window' });
+        clients.forEach(c => c.postMessage({ type: 'SW_ACTIVATED' }));
+      })
   );
 });
 
-// ── FETCH — Cache First for own origin, Network First for others ──
+// ── FETCH — Network-first for HTML, Cache-first for rest ──
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
   if (request.method !== 'GET') return;
   if (!url.protocol.startsWith('http')) return;
 
+  // للصفحة الرئيسية: network-first حتى يحصل على أحدث نسخة
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // للخطوط وملفات التطبيق: cache-first مع revalidate في الخلفية
   if (url.origin === self.location.origin || url.hostname.includes('fonts.')) {
     event.respondWith(cacheFirst(request));
   } else {
@@ -62,8 +75,10 @@ async function cacheFirst(request) {
   const cache  = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
   if (cached) {
-    // Background revalidate
-    fetch(request).then(res => { if (res && res.status === 200) cache.put(request, res.clone()); }).catch(() => {});
+    // Stale-while-revalidate: أرجع المخزن فوراً وحدّث في الخلفية
+    fetch(request)
+      .then(res => { if (res && res.status === 200) cache.put(request, res.clone()); })
+      .catch(() => {});
     return cached;
   }
   try {
@@ -71,11 +86,10 @@ async function cacheFirst(request) {
     if (res && res.status === 200) cache.put(request, res.clone());
     return res;
   } catch {
-    if (request.mode === 'navigate') {
-      const idx = await cache.match('./index.html');
-      if (idx) return idx;
-    }
-    return new Response('غير متاح بدون اتصال', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    return new Response('غير متاح بدون اتصال', {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
   }
 }
 
@@ -87,71 +101,60 @@ async function networkFirst(request) {
     return res;
   } catch {
     const cached = await cache.match(request);
-    return cached || new Response('غير متاح', { status: 503 });
+    if (cached) return cached;
+    // fallback to index for navigation
+    if (request.mode === 'navigate') {
+      const idx = await cache.match('./index.html');
+      if (idx) return idx;
+    }
+    return new Response('غير متاح', { status: 503 });
   }
 }
 
 // ══════════════════════════════════════════
 //  DAILY 2 PM NOTIFICATION
-//  Works fully offline — logic lives here
-//  in the SW, independent of the page.
 // ══════════════════════════════════════════
-
-// Called by the page when user grants notification permission.
-// We store the target hour in SW globalThis so restarts re-schedule.
 let _notifyTimer = null;
 
 function msUntilNext2PM() {
   const now  = new Date();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 0, 0, 0);
-  if (next <= now) next.setDate(next.getDate() + 1);   // already past → tomorrow
+  if (next <= now) next.setDate(next.getDate() + 1);
   return next - now;
 }
 
 function scheduleDaily2PM() {
   if (_notifyTimer) clearTimeout(_notifyTimer);
-
   const delay = msUntilNext2PM();
-
   _notifyTimer = setTimeout(async () => {
-    // Check if user interacted today — read from IDB/clients
-    const shouldNotify = await checkShouldNotify();
-    if (shouldNotify) {
+    const should = await checkShouldNotify();
+    if (should) {
       await self.registration.showNotification('🕌 تذكير — قضاء الصلوات', {
         body: 'لا تنسَ تسجيل وقضاء صلواتك الفائتة اليوم',
         icon: './mosque-icon.svg',
         badge: './mosque-icon.svg',
         dir: 'rtl', lang: 'ar',
-        tag: 'daily-prayer-2pm',     // replaces previous same-tag notification
+        tag: 'daily-prayer-2pm',
         renotify: false,
         vibrate: [200, 100, 200],
         actions: [{ action: 'open', title: 'فتح التطبيق' }],
       });
     }
-    // Schedule next day automatically
-    scheduleDaily2PM();
+    scheduleDaily2PM(); // schedule next day
   }, delay);
 }
 
-// Read lastInteractionDate from all open clients via postMessage.
-// Falls back to "should notify" if we can't reach any client (background).
 async function checkShouldNotify() {
   const todayStr = new Date().toISOString().split('T')[0];
   try {
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    if (allClients.length === 0) {
-      // No open window — assume notification is needed (background scenario)
-      return true;
-    }
-    // Ask the first client for its lastInteractionDate
+    if (allClients.length === 0) return true;
     return new Promise(resolve => {
       const ch = new MessageChannel();
       ch.port1.onmessage = e => {
-        const interactionDate = e.data && e.data.lastInteractionDate;
-        resolve(interactionDate !== todayStr);
+        resolve((e.data && e.data.lastInteractionDate) !== todayStr);
       };
       allClients[0].postMessage({ type: 'GET_INTERACTION_DATE' }, [ch.port2]);
-      // Timeout after 500ms → assume notify
       setTimeout(() => resolve(true), 500);
     });
   } catch {
@@ -165,16 +168,17 @@ self.addEventListener('message', event => {
   if (!data) return;
 
   switch (data.type) {
+    case 'SKIP_WAITING':
+      // المستخدم ضغط "تحديث" في الـ banner — تولَّ الآن
+      self.skipWaiting();
+      break;
     case 'SCHEDULE_DAILY_NOTIFY':
-      // Page sends this when notification permission is granted
       scheduleDaily2PM();
       break;
     case 'CANCEL_DAILY_NOTIFY':
       if (_notifyTimer) { clearTimeout(_notifyTimer); _notifyTimer = null; }
       break;
     case 'PING':
-      // Keepalive from page (sent every 20s while page is open)
-      // Re-schedule if timer was lost (e.g. SW restarted)
       if (data.notifyEnabled && !_notifyTimer) scheduleDaily2PM();
       break;
   }
@@ -198,7 +202,7 @@ self.addEventListener('periodicsync', event => {
   }
 });
 
-// ── PUSH (server-sent, optional) ────────────
+// ── PUSH ────────────────────────────────────
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
   event.waitUntil(

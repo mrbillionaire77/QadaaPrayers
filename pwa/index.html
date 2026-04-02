@@ -1486,16 +1486,9 @@ function startSWPing() {
   }, 20000);
 }
 
-// Respond to SW's GET_INTERACTION_DATE query (used during background notify check)
+// Keepalive ping handler (separate from main SW message listener)
 function listenSWMessages() {
-  if (!navigator.serviceWorker) return;
-  navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data && event.data.type === 'GET_INTERACTION_DATE') {
-      // Reply on the provided MessageChannel port
-      event.data && event.ports && event.ports[0] &&
-        event.ports[0].postMessage({ lastInteractionDate: state.lastInteractionDate || '' });
-    }
-  });
+  // Messages are now handled centrally in the SW register block above
 }
 
 // ══════════════════════════════════════════════
@@ -1518,20 +1511,20 @@ if ('serviceWorker' in navigator) {
     reg.update(); // Check for updates silently
 
     // When a new SW is waiting, show the gentle update banner
-    function checkWaiting() {
-      if (reg.waiting) {
-        pendingSWUpdate = reg.waiting;
-        document.getElementById('updateBanner').classList.add('show');
-      }
+    function showUpdateBanner(sw) {
+      pendingSWUpdate = sw;
+      document.getElementById('updateBanner').classList.add('show');
     }
-    checkWaiting();
+
+    // Already waiting (e.g. user refreshed)
+    if (reg.waiting) showUpdateBanner(reg.waiting);
+
     reg.addEventListener('updatefound', () => {
       const newSW = reg.installing;
       if (!newSW) return;
       newSW.addEventListener('statechange', () => {
         if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-          pendingSWUpdate = newSW;
-          document.getElementById('updateBanner').classList.add('show');
+          showUpdateBanner(newSW);
         }
       });
     });
@@ -1542,27 +1535,34 @@ if ('serviceWorker' in navigator) {
     }
   }).catch(() => {});
 
+  // When SW_ACTIVATED arrives, reload to apply new version
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'SW_ACTIVATED') {
+      // Only reload if the user triggered it (pendingSWUpdate was set)
+      if (pendingSWUpdate === null) window.location.reload();
+    }
+    if (e.data && e.data.type === 'GET_INTERACTION_DATE') {
+      e.ports && e.ports[0] &&
+        e.ports[0].postMessage({ lastInteractionDate: state.lastInteractionDate || '' });
+    }
+  });
+
   listenSWMessages();
   startSWPing();
 }
 
-// User clicks "Update" → skip waiting → page reloads once (data is safe in localStorage)
+// User clicks "Update" → send SKIP_WAITING to the waiting SW → it activates → controllerchange fires → reload
 document.getElementById('updateBannerBtn').addEventListener('click', () => {
+  document.getElementById('updateBanner').classList.remove('show');
   if (pendingSWUpdate) {
+    // Reload once controller changes
+    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
     pendingSWUpdate.postMessage({ type: 'SKIP_WAITING' });
     pendingSWUpdate = null;
+  } else {
+    window.location.reload();
   }
-  document.getElementById('updateBanner').classList.remove('show');
-  // Reload after SW takes control
-  navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
 });
-
-// Handle SKIP_WAITING message in SW on next register call
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
-  });
-}
 
 // ══════════════════════════════════════════════
 //  INSTALL GUIDE
