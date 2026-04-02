@@ -1,10 +1,10 @@
 // ══════════════════════════════════════════
-// قضاء الصلوات — Service Worker v3
-// Offline-first: cache everything on install
+// قضاء الصلوات — Service Worker v6
+// Offline-first + Daily 2PM Notification
 // ══════════════════════════════════════════
-const CACHE_NAME = 'qadaa-prayers-v5';
+const CACHE_NAME = 'qadaa-prayers-v6';
+const DATA_KEY   = 'prayer_tracker_v3';   // ← same key used by the app
 
-// All assets to cache on install (app shell)
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,20 +12,15 @@ const APP_SHELL = [
   './mosque-icon.svg',
 ];
 
-// External assets to attempt caching (non-fatal if fail)
 const EXTERNAL = [
   'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap',
-  'https://fonts.gstatic.com/s/tajawal/v9/Iura6YBj_oCad4k1l5qjHrRpiYlJ.woff2',
-  'https://fonts.gstatic.com/s/tajawal/v9/Iura6YBj_oCad4k1nZqjHrRpiYlJ.woff2',
 ];
 
 // ── INSTALL ────────────────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async cache => {
-      // Cache app shell (must succeed)
       await cache.addAll(APP_SHELL);
-      // Cache external fonts (best-effort)
       await Promise.allSettled(
         EXTERNAL.map(url =>
           fetch(url, { mode: 'cors', credentials: 'omit' })
@@ -35,138 +30,194 @@ self.addEventListener('install', event => {
       );
     })
   );
-  // Activate immediately without waiting for old SW to finish
-  self.skipWaiting(); // Force immediate activation
+  self.skipWaiting();
 });
 
 // ── ACTIVATE ───────────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(k => k !== CACHE_NAME)
-          .map(k => caches.delete(k))
-      )
-    )
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+    // ⚠ Do NOT send SW_UPDATED to force reload — it caused perceived data loss.
+    // The app will silently load the new cached version on next navigation.
   );
-  // Take control of all open clients immediately
-  self.clients.claim();
-  // Notify all clients to reload after SW update
-  self.clients.matchAll({ type: 'window' }).then(clients => {
-    clients.forEach(client => client.postMessage({ type: 'SW_UPDATED' }));
-  });
 });
 
-// ── FETCH ──────────────────────────────────
+// ── FETCH — Cache First for own origin, Network First for others ──
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
-
-  // Only handle GET requests
   if (request.method !== 'GET') return;
-
-  // Skip chrome-extension and non-http
   if (!url.protocol.startsWith('http')) return;
 
-  // ── Strategy: Cache First (with network update) for app shell
   if (url.origin === self.location.origin || url.hostname.includes('fonts.')) {
-    event.respondWith(cacheFirstWithUpdate(request));
-    return;
+    event.respondWith(cacheFirst(request));
+  } else {
+    event.respondWith(networkFirst(request));
   }
-
-  // ── Default: Network First with cache fallback
-  event.respondWith(networkFirstWithCache(request));
 });
 
-// Cache First: return cached, update cache in background
-async function cacheFirstWithUpdate(request) {
-  const cache = await caches.open(CACHE_NAME);
+async function cacheFirst(request) {
+  const cache  = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
-
-  // Fetch in background to keep cache fresh
-  const fetchPromise = fetch(request)
-    .then(response => {
-      if (response && response.status === 200) {
-        cache.put(request, response.clone());
-      }
-      return response;
-    })
-    .catch(() => null);
-
-  // Return cached immediately, or wait for network
-  if (cached) return cached;
-
-  const networkResponse = await fetchPromise;
-  if (networkResponse) return networkResponse;
-
-  // Ultimate fallback: serve index.html for navigation
-  if (request.mode === 'navigate') {
-    const indexCache = await cache.match('./index.html');
-    if (indexCache) return indexCache;
+  if (cached) {
+    // Background revalidate
+    fetch(request).then(res => { if (res && res.status === 200) cache.put(request, res.clone()); }).catch(() => {});
+    return cached;
   }
-
-  return new Response('غير متاح بدون اتصال', {
-    status: 503,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-  });
+  try {
+    const res = await fetch(request);
+    if (res && res.status === 200) cache.put(request, res.clone());
+    return res;
+  } catch {
+    if (request.mode === 'navigate') {
+      const idx = await cache.match('./index.html');
+      if (idx) return idx;
+    }
+    return new Response('غير متاح بدون اتصال', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
 }
 
-// Network First: try network, fall back to cache
-async function networkFirstWithCache(request) {
+async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   try {
-    const response = await fetch(request);
-    if (response && response.status === 200) {
-      cache.put(request, response.clone());
-    }
-    return response;
+    const res = await fetch(request);
+    if (res && res.status === 200) cache.put(request, res.clone());
+    return res;
   } catch {
     const cached = await cache.match(request);
-    if (cached) return cached;
-    return new Response('غير متاح', { status: 503 });
+    return cached || new Response('غير متاح', { status: 503 });
   }
 }
 
-// ── PUSH NOTIFICATIONS ─────────────────────
+// ══════════════════════════════════════════
+//  DAILY 2 PM NOTIFICATION
+//  Works fully offline — logic lives here
+//  in the SW, independent of the page.
+// ══════════════════════════════════════════
+
+// Called by the page when user grants notification permission.
+// We store the target hour in SW globalThis so restarts re-schedule.
+let _notifyTimer = null;
+
+function msUntilNext2PM() {
+  const now  = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);   // already past → tomorrow
+  return next - now;
+}
+
+function scheduleDaily2PM() {
+  if (_notifyTimer) clearTimeout(_notifyTimer);
+
+  const delay = msUntilNext2PM();
+
+  _notifyTimer = setTimeout(async () => {
+    // Check if user interacted today — read from IDB/clients
+    const shouldNotify = await checkShouldNotify();
+    if (shouldNotify) {
+      await self.registration.showNotification('🕌 تذكير — قضاء الصلوات', {
+        body: 'لا تنسَ تسجيل وقضاء صلواتك الفائتة اليوم',
+        icon: './mosque-icon.svg',
+        badge: './mosque-icon.svg',
+        dir: 'rtl', lang: 'ar',
+        tag: 'daily-prayer-2pm',     // replaces previous same-tag notification
+        renotify: false,
+        vibrate: [200, 100, 200],
+        actions: [{ action: 'open', title: 'فتح التطبيق' }],
+      });
+    }
+    // Schedule next day automatically
+    scheduleDaily2PM();
+  }, delay);
+}
+
+// Read lastInteractionDate from all open clients via postMessage.
+// Falls back to "should notify" if we can't reach any client (background).
+async function checkShouldNotify() {
+  const todayStr = new Date().toISOString().split('T')[0];
+  try {
+    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (allClients.length === 0) {
+      // No open window — assume notification is needed (background scenario)
+      return true;
+    }
+    // Ask the first client for its lastInteractionDate
+    return new Promise(resolve => {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = e => {
+        const interactionDate = e.data && e.data.lastInteractionDate;
+        resolve(interactionDate !== todayStr);
+      };
+      allClients[0].postMessage({ type: 'GET_INTERACTION_DATE' }, [ch.port2]);
+      // Timeout after 500ms → assume notify
+      setTimeout(() => resolve(true), 500);
+    });
+  } catch {
+    return true;
+  }
+}
+
+// ── MESSAGES FROM PAGE ──────────────────────
+self.addEventListener('message', event => {
+  const { data } = event;
+  if (!data) return;
+
+  switch (data.type) {
+    case 'SCHEDULE_DAILY_NOTIFY':
+      // Page sends this when notification permission is granted
+      scheduleDaily2PM();
+      break;
+    case 'CANCEL_DAILY_NOTIFY':
+      if (_notifyTimer) { clearTimeout(_notifyTimer); _notifyTimer = null; }
+      break;
+    case 'PING':
+      // Keepalive from page (sent every 20s while page is open)
+      // Re-schedule if timer was lost (e.g. SW restarted)
+      if (data.notifyEnabled && !_notifyTimer) scheduleDaily2PM();
+      break;
+  }
+});
+
+// ── PERIODIC BACKGROUND SYNC (Chrome Android) ──
+self.addEventListener('periodicsync', event => {
+  if (event.tag === 'daily-prayer-2pm') {
+    event.waitUntil(
+      checkShouldNotify().then(should => {
+        if (!should) return;
+        return self.registration.showNotification('🕌 تذكير — قضاء الصلوات', {
+          body: 'لا تنسَ تسجيل وقضاء صلواتك الفائتة اليوم',
+          icon: './mosque-icon.svg',
+          dir: 'rtl', lang: 'ar',
+          tag: 'daily-prayer-2pm',
+          vibrate: [200, 100, 200],
+        });
+      })
+    );
+  }
+});
+
+// ── PUSH (server-sent, optional) ────────────
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
   event.waitUntil(
-    self.registration.showNotification(data.title || 'قضاء الصلوات', {
-      body: data.body || 'هل قمت بتسجيل صلواتك الفائتة اليوم؟',
+    self.registration.showNotification(data.title || '🕌 قضاء الصلوات', {
+      body: data.body || 'تذكير بتسجيل صلواتك الفائتة',
       icon: './mosque-icon.svg',
-      badge: './mosque-icon.svg',
       dir: 'rtl', lang: 'ar',
       vibrate: [200, 100, 200],
     })
   );
 });
 
-// ── NOTIFICATION CLICK ─────────────────────
+// ── NOTIFICATION CLICK ──────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      if (clientList.length > 0) return clientList[0].focus();
-      return clients.openWindow('./');
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      if (list.length > 0) return list[0].focus();
+      return self.clients.openWindow('./');
     })
   );
 });
-
-// ── PERIODIC BACKGROUND SYNC ───────────────
-self.addEventListener('periodicsync', event => {
-  if (event.tag === 'daily-prayer-reminder') {
-    event.waitUntil(showDailyReminder());
-  }
-});
-
-async function showDailyReminder() {
-  const hour = new Date().getHours();
-  if (hour < 20) return; // Only after 8 PM
-  await self.registration.showNotification('تذكير يومي — قضاء الصلوات', {
-    body: 'لا تنسَ تسجيل صلواتك الفائتة اليوم',
-    icon: './mosque-icon.svg',
-    dir: 'rtl', lang: 'ar',
-    vibrate: [100, 50, 100],
-  });
-}
