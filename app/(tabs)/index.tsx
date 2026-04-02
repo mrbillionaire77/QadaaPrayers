@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 
 import { Colors, Spacing, Radius, FontSize, FontWeight } from '@/constants/theme';
 import { PRAYERS, QURAN_VERSE, APP_NAME } from '@/constants/config';
@@ -105,12 +104,9 @@ export default function HomeScreen() {
           </Pressable>
 
           <View style={styles.headerCenter}>
-            <Image
-              source={require('@/assets/mosque-icon.png')}
-              style={styles.mosqueIcon}
-              contentFit="contain"
-              transition={200}
-            />
+            <View style={styles.mosqueIcon}>
+              <Text style={styles.mosqueEmoji}>🕌</Text>
+            </View>
             <Text style={styles.headerTitle}>قضاء الصلوات</Text>
             <Text style={styles.headerDate}>{getArabicDate()}</Text>
           </View>
@@ -245,6 +241,12 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     marginBottom: Spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mosqueEmoji: {
+    fontSize: 48,
+    lineHeight: 60,
   },
   headerTitle: {
     fontSize: FontSize.xxl,
