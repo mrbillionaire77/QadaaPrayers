@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1F4A3A" />
+  <meta name="description" content="تطبيق لتتبع الصلوات الفائتة وقضائها — يعمل بدون إنترنت" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="قضاء الصلوات" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="mosque-icon.svg" />
+  <link rel="icon" href="mosque-icon.svg" />
+  <title>قضاء الصلوات</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:      #1F4A3A;
+      --primary-dark: #163529;
+      --gold:         #C5A028;
+      --gold-light:   #D4B84A;
+      --beige:        #F5F0E6;
+      --card:         #FFFFFF;
+      --text:         #1A2E23;
+      --text-sec:     #5A6B62;
+      --text-muted:   #9AA89F;
+      --border:       #E8E2D4;
+      --danger:       #B5433A;
+      --danger-bg:    #FFF0EF;
+      --success:      #2E7D52;
+      --success-bg:   #EAF5EE;
+      --info-bg:      rgba(31,74,58,0.07);
+      --shadow:       rgba(31,74,58,0.12);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Tajawal', -apple-system, 'Segoe UI', sans-serif;
+      background: var(--beige);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    body { display: flex; flex-direction: column; min-height: 100dvh; }
+
+    /* ══ UPDATE BANNER ══ */
+    .update-banner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      background: var(--primary); color: #fff; padding: 10px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; font-size: 13px; font-weight: 600;
+      transform: translateY(-100%); transition: transform 0.3s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .update-banner.show { transform: translateY(0); }
+    .update-banner-btn {
+      background: var(--gold); color: #fff; border: none;
+      border-radius: 8px; padding: 6px 14px;
+      font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* ══ OFFLINE BADGE ══ */
+    .offline-banner {
+      background: #5A6B62; color: #fff; text-align: center;
+      font-size: 12px; padding: 6px 16px; flex-shrink: 0;
+      display: none;
+    }
+    .offline-banner.show { display: block; }
+
+    /* ══ HEADER ══ */
+    .header {
+      background: var(--primary);
+      padding: 44px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .header-actions-left {
+      position: absolute; top: 48px; left: 14px;
+      display: flex; gap: 8px;
+    }
+    .header-actions-right {
+      position: absolute; top: 48px; right: 14px;
+      display: flex; gap: 8px;
+    }
+    .header-icon-btn {
+      width: 38px; height: 38px; border-radius: 50%; border: none;
+      background: rgba(197,160,40,0.18); color: var(--gold);
+      font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .header-icon-btn:active { transform: scale(0.9); background: rgba(197,160,40,0.32); }
+    .header-icon-btn.active-state { background: rgba(197,160,40,0.35); }
+
+    .mosque-icon { width: 64px; height: 64px; margin-bottom: 6px; object-fit: contain; border-radius: 14px; }
+    .header-title { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
+    .header-dates { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 5px; }
+    .header-date-greg  { font-size: 12px; color: rgba(255,255,255,0.6); }
+    .header-date-hijri { font-size: 12px; color: var(--gold-light); font-weight: 600; }
+
+    /* ══ TOTAL CARD ══ */
+    .total-section {
+      background: var(--primary);
+      padding: 0 16px 16px;
+      flex-shrink: 0;
+    }
+    .total-card {
+      background: rgba(255,255,255,0.08);
+      border-radius: 20px; padding: 16px 20px;
+      text-align: center;
+      border: 1.5px solid rgba(197,160,40,0.4);
+    }
+    .total-number {
+      font-size: 56px; font-weight: 900; color: var(--gold);
+      line-height: 1; letter-spacing: -1px;
+      transition: transform 0.15s;
+    }
+    .total-number.bump { transform: scale(1.06); }
+    .total-label { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 4px; }
+    .total-sub   { font-size: 11px; color: rgba(255,255,255,0.38); margin-top: 3px; }
+
+    /* ══ SCROLL ══ */
+    .scroll-area {
+      flex: 1; overflow-y: auto; background: var(--beige);
+      padding: 14px 16px 130px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ══ SEC TITLE ══ */
+    .sec-title {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      margin-bottom: 8px; padding-right: 4px; text-transform: uppercase; letter-spacing: 0.8px;
+    }
+
+    /* ══ NOTIFY BANNER ══ */
+    .notify-banner {
+      background: linear-gradient(135deg, rgba(31,74,58,0.1), rgba(197,160,40,0.08));
+      border: 1px solid rgba(31,74,58,0.15);
+      border-radius: 16px; padding: 13px 14px;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 14px;
+    }
+    .notify-banner-icon { font-size: 26px; flex-shrink: 0; }
+    .notify-banner-body { flex: 1; }
+    .notify-banner-title { font-size: 14px; font-weight: 700; color: var(--primary); }
+    .notify-banner-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .notify-banner-btn {
+      background: var(--primary); color: #fff; border: none; border-radius: 10px;
+      padding: 8px 14px; font-family: inherit; font-size: 13px; font-weight: 700;
+      cursor: pointer; flex-shrink: 0; white-space: nowrap;
+    }
+
+    /* ══ STATS ══ */
+    .stats-card {
+      background: var(--card); border-radius: 20px; padding: 16px;
+      box-shadow: 0 2px 12px var(--shadow); margin-bottom: 14px;
+    }
+    .stats-row { display: flex; gap: 10px; }
+    .stat-box {
+      flex: 1; background: var(--beige); border-radius: 14px; padding: 13px 8px;
+      text-align: center;
+    }
+    .stat-num { font-size: 22px; font-weight: 900; color: var(--primary); }
+    .stat-lbl { font-size: 10px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+    .stat-box.gold  .stat-num { color: var(--gold); }
+    .stat-box.green .stat-num { color: var(--success); }
+    .progress-bar-wrap { margin-top: 14px; background: var(--border); border-radius: 99px; height: 8px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--gold)); border-radius: 99px; transition: width 0.5s ease; min-width: 0; }
+    .progress-label { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 7px; }
+
+    /* ══ PRAYERS CARD ══ */
+    .prayers-card {
+      background: var(--card); border-radius: 22px; overflow: hidden;
+      box-shadow: 0 2px 14px var(--shadow); margin-bottom: 14px;
+    }
+    .prayer-row {
+      display: flex; flex-direction: row;
+      align-items: center; justify-content: space-between;
+      padding: 13px 14px; border-bottom: 1px solid var(--border); gap: 8px;
+    }
+    .prayer-row:last-child { border-bottom: none; }
+    .prayer-info { flex: 1; text-align: right; }
+    .prayer-name { font-size: 16px; font-weight: 700; color: var(--primary); }
+    .prayer-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .counter-section { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .count-display {
+      min-width: 60px; text-align: center;
+      font-size: 24px; font-weight: 900; color: var(--text);
+      cursor: pointer; padding: 4px 6px; border-radius: 10px;
+      transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent; user-select: none;
+    }
+    .count-display:active { background: var(--beige); transform: scale(0.95); }
+    .ctrl-btn {
+      width: 38px; height: 38px; border-radius: 50%; border: none;
+      cursor: pointer; font-size: 20px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s, opacity 0.15s;
+      -webkit-tap-highlight-color: transparent; flex-shrink: 0; line-height: 1;
+    }
+    .ctrl-btn:active { transform: scale(0.86); opacity: 0.75; }
+    .ctrl-increment { background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(31,74,58,0.3); }
+    .ctrl-decrement { background: var(--border); color: var(--text-sec); }
+    .ctrl-decrement:disabled { opacity: 0.3; cursor: default; }
+
+    /* ══ QUICK ADD ══ */
+    .quick-card {
+      background: var(--card); border-radius: 20px; padding: 14px 14px 12px;
+      box-shadow: 0 2px 10px var(--shadow); margin-bottom: 14px;
+    }
+    .quick-title { font-size: 13px; font-weight: 700; color: var(--text-sec); margin-bottom: 10px; }
+    .quick-row { display: flex; gap: 8px; }
+    .quick-btn {
+      flex: 1; padding: 11px 4px; border-radius: 14px; border: none;
+      background: var(--beige); color: var(--primary);
+      font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+      text-align: center; transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .quick-btn:active { background: rgba(31,74,58,0.15); transform: scale(0.96); }
+    .quick-btn span { display: block; font-size: 10px; color: var(--text-muted); font-weight: 500; margin-top: 3px; }
+
+    /* ══ VERSE ══ */
+    .verse-card {
+      background: var(--primary); border-radius: 20px; padding: 18px 20px 16px;
+      text-align: center; box-shadow: 0 2px 10px var(--shadow); margin-bottom: 10px;
+    }
+    .verse-text { font-size: 16px; font-weight: 700; color: #fff; line-height: 1.9; }
+    .verse-sub  { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 6px; }
+
+    .tip { text-align: center; font-size: 12px; color: var(--text-muted); padding: 6px; }
+
+    /* ══ FAB ══ */
+    .fab-row {
+      position: fixed; bottom: 16px; left: 16px; right: 16px;
+      display: flex; gap: 10px; z-index: 100;
+    }
+    .fab-btn {
+      flex: 1; border: none; border-radius: 99px; padding: 15px 16px;
+      font-family: inherit; font-size: 15px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: transform 0.1s, opacity 0.15s; -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.2);
+    }
+    .fab-btn:active { transform: scale(0.96); opacity: 0.88; }
+    .fab-share { background: var(--gold); color: #fff; }
+    .fab-calc  { background: var(--primary); color: #fff; flex: 0 0 auto; width: 54px; padding: 0; font-size: 22px; border-radius: 50%; }
+
+    /* ══ MODAL ══ */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-card {
+      background: var(--card); border-radius: 24px; padding: 24px 20px;
+      width: min(320px, 92vw);
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+      transform: scale(0.94) translateY(10px); transition: transform 0.2s;
+    }
+    .modal-overlay.open .modal-card { transform: scale(1) translateY(0); }
+    .modal-title { font-size: 17px; font-weight: 700; color: var(--primary); text-align: center; }
+    .modal-input {
+      width: 100%; border: 2.5px solid var(--primary); border-radius: 14px; padding: 14px;
+      font-family: inherit; font-size: 32px; font-weight: 900;
+      color: var(--text); text-align: center; outline: none; background: var(--beige);
+    }
+    .modal-input:focus { border-color: var(--gold); background: #fff; }
+    .modal-btns { display: flex; gap: 10px; width: 100%; }
+    .modal-btn {
+      flex: 1; padding: 13px; border-radius: 14px; border: none;
+      font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .modal-btn:active { opacity: 0.8; }
+    .modal-btn-cancel  { background: var(--border); color: var(--text-sec); }
+    .modal-btn-confirm { background: var(--primary); color: #fff; }
+
+    /* ══ BOTTOM SHEET ══ */
+    .sheet-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: flex-end;
+      z-index: 300; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .sheet-overlay.open { opacity: 1; pointer-events: all; }
+    .sheet {
+      background: var(--beige); border-radius: 28px 28px 0 0;
+      width: 100%; max-height: 94dvh;
+      display: flex; flex-direction: column; overflow: hidden;
+      transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
+    }
+    .sheet-overlay.open .sheet { transform: translateY(0); }
+    .sheet-drag { width: 40px; height: 4px; background: var(--border); border-radius: 99px; margin: 12px auto 0; flex-shrink: 0; }
+    .sheet-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .sheet-title { font-size: 17px; font-weight: 700; color: var(--primary); flex: 1; text-align: center; }
+    .sheet-close-btn {
+      width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--border); color: var(--text-sec); font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sheet-body { overflow-y: auto; padding: 16px 16px 32px; -webkit-overflow-scrolling: touch; flex: 1; }
+
+    /* ══ TABS ══ */
+    .tab-bar { display: flex; background: var(--border); border-radius: 14px; padding: 3px; margin-bottom: 16px; }
+    .tab-btn {
+      flex: 1; padding: 9px 8px; border-radius: 11px; border: none;
+      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background 0.2s, color 0.2s; background: transparent; color: var(--text-muted);
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; }
+
+    /* ══ SHARE CARD ══ */
+    .shareable-card {
+      background: var(--beige); border-radius: 22px; padding: 20px 16px;
+      width: 100%; border: 1px solid var(--border); box-shadow: 0 4px 16px var(--shadow);
+    }
+    .sc-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 14px; }
+    .sc-icon { width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px; border-radius: 12px; }
+    .sc-title { font-size: 20px; font-weight: 800; color: var(--primary); }
+    .sc-date-greg  { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+    .sc-date-hijri { font-size: 11px; color: var(--gold); font-weight: 600; }
+    .sc-total-box { background: var(--primary); border-radius: 16px; padding: 14px; text-align: center; margin-bottom: 10px; }
+    .sc-total-num { font-size: 40px; font-weight: 900; color: var(--gold); line-height: 1; }
+    .sc-total-lbl { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 4px; }
+    .sc-rows-card { background: var(--card); border-radius: 14px; overflow: hidden; margin-bottom: 10px; }
+    .sc-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .sc-row:last-child { border-bottom: none; }
+    .sc-row-name  { font-size: 14px; font-weight: 700; color: var(--primary); }
+    .sc-row-time  { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+    .sc-row-count { font-size: 18px; font-weight: 900; color: var(--text); }
+    .sc-progress-bar { background: var(--border); border-radius: 99px; height: 6px; overflow: hidden; margin-bottom: 4px; }
+    .sc-progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--gold)); border-radius: 99px; }
+    .sc-progress-lbl { font-size: 10px; color: var(--text-muted); text-align: center; margin-bottom: 10px; }
+    .sc-verse { text-align: center; font-size: 13px; font-weight: 700; color: var(--primary); line-height: 1.9; }
+    .sc-app-tag { text-align: center; font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+
+    .share-actions { display: flex; gap: 10px; width: 100%; margin-top: 4px; }
+    .share-action-btn {
+      flex: 1; padding: 13px 10px; border-radius: 16px; border: none;
+      font-family: inherit; font-size: 14px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: opacity 0.15s; -webkit-tap-highlight-color: transparent;
+    }
+    .share-action-btn:active { opacity: 0.8; }
+    .btn-share-text { background: var(--primary); color: #fff; }
+    .btn-share-pdf  { background: var(--gold); color: #fff; }
+    .share-hint { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 6px; }
+
+    /* ══ CALC ══ */
+    .calc-intro {
+      background: var(--info-bg); border-radius: 14px; padding: 13px 15px;
+      margin-bottom: 16px; font-size: 13px; color: var(--text-sec); line-height: 1.8;
+    }
+    .calc-intro strong { color: var(--primary); }
+
+    .period-card {
+      background: var(--card); border-radius: 18px; padding: 14px 14px 12px;
+      margin-bottom: 10px; box-shadow: 0 1px 6px var(--shadow); position: relative;
+    }
+    .period-label { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 10px; }
+    .period-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .period-row label { font-size: 12px; color: var(--text-sec); flex-shrink: 0; min-width: 90px; }
+    .period-input {
+      flex: 1; border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 10px;
+      font-family: inherit; font-size: 16px; font-weight: 700;
+      color: var(--text); text-align: center; outline: none; background: var(--beige); min-width: 0;
+    }
+    .period-input[type="date"] { font-size: 13px; font-weight: 600; text-align: right; }
+    .period-input:focus { border-color: var(--primary); background: #fff; }
+    .period-delete {
+      position: absolute; top: 10px; left: 12px;
+      width: 26px; height: 26px; border-radius: 50%; border: none;
+      background: var(--danger-bg); color: var(--danger);
+      font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .period-note { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    .add-period-btn {
+      width: 100%; padding: 12px; border-radius: 14px; border: 2px dashed var(--primary);
+      background: transparent; color: var(--primary);
+      font-family: inherit; font-size: 15px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin-bottom: 14px; transition: background 0.15s;
+    }
+    .add-period-btn:active { background: var(--info-bg); }
+
+    .calc-result {
+      background: var(--primary); border-radius: 18px; padding: 18px;
+      text-align: center; margin-bottom: 12px;
+    }
+    .calc-result-num { font-size: 44px; font-weight: 900; color: var(--gold); line-height: 1; }
+    .calc-result-lbl { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 6px; }
+    .calc-result-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 3px; }
+
+    .calc-breakdown { background: var(--card); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
+    .calc-breakdown-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px;
+    }
+    .calc-breakdown-row:last-child { border-bottom: none; }
+    .calc-breakdown-name { font-weight: 600; color: var(--primary); }
+    .calc-breakdown-val  { font-weight: 800; color: var(--text); }
+
+    .calc-error { background: var(--danger-bg); border-radius: 12px; padding: 11px 13px; font-size: 13px; color: var(--danger); margin-bottom: 10px; text-align: center; }
+    .calc-add-btn {
+      width: 100%; padding: 15px; border-radius: 16px; border: none;
+      background: var(--gold); color: #fff;
+      font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .calc-add-btn:active { opacity: 0.85; }
+    .calc-add-btn:disabled { opacity: 0.35; cursor: default; }
+
+    /* ══ RESET CONFIRM ══ */
+    .confirm-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 400; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .confirm-overlay.open { opacity: 1; pointer-events: all; }
+    .confirm-card {
+      background: var(--card); border-radius: 24px; padding: 26px 22px;
+      width: min(300px, 90vw); text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+      transform: scale(0.95); transition: transform 0.2s;
+    }
+    .confirm-overlay.open .confirm-card { transform: scale(1); }
+    .confirm-icon  { font-size: 42px; margin-bottom: 10px; }
+    .confirm-title { font-size: 17px; font-weight: 700; color: var(--danger); margin-bottom: 8px; }
+    .confirm-msg   { font-size: 14px; color: var(--text-sec); line-height: 1.6; margin-bottom: 22px; }
+    .confirm-btns  { display: flex; gap: 10px; }
+    .confirm-btn   { flex: 1; padding: 13px; border-radius: 14px; border: none; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .confirm-btn-cancel { background: var(--border); color: var(--text-sec); }
+    .confirm-btn-ok     { background: var(--danger); color: #fff; }
+
+    /* ══ INSTALL GUIDE ══ */
+    .install-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      display: flex; align-items: flex-end;
+      z-index: 500; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .install-overlay.open { opacity: 1; pointer-events: all; }
+    .install-sheet {
+      background: var(--beige); border-radius: 28px 28px 0 0;
+      width: 100%; max-height: 90dvh;
+      display: flex; flex-direction: column;
+      transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
+      overflow: hidden;
+    }
+    .install-overlay.open .install-sheet { transform: translateY(0); }
+    .install-drag { width: 40px; height: 4px; background: var(--border); border-radius: 99px; margin: 14px auto 0; flex-shrink: 0; }
+    .install-sheet-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px 14px; flex-shrink: 0; }
+    .install-sheet-title { font-size: 18px; font-weight: 800; color: var(--primary); }
+    .install-close-btn {
+      width: 30px; height: 30px; border-radius: 50%; border: none;
+      background: var(--border); color: var(--text-sec); font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .install-tab-bar { display: flex; background: var(--border); border-radius: 12px; padding: 3px; margin: 0 16px 4px; flex-shrink: 0; }
+    .install-tab {
+      flex: 1; padding: 9px; border-radius: 9px; border: none;
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; background: transparent; color: var(--text-muted); text-align: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .install-tab.active { background: var(--primary); color: #fff; }
+    .install-body { overflow-y: auto; padding: 16px 16px 32px; flex: 1; -webkit-overflow-scrolling: touch; }
+    .install-panel { display: none; }
+    .install-panel.active { display: block; }
+
+    .install-steps { display: flex; flex-direction: column; gap: 12px; }
+    .install-step { background: var(--card); border-radius: 16px; padding: 14px 14px 14px 16px; display: flex; align-items: flex-start; gap: 12px; box-shadow: 0 1px 6px var(--shadow); }
+    .step-num { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .step-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .step-desc  { font-size: 12px; color: var(--text-sec); line-height: 1.6; }
+    .illus-wrap { margin-top: 10px; }
+
+    .illus-browser { background: #f1f3f4; border-radius: 10px; padding: 8px; }
+    .illus-browser-bar { background: #fff; border-radius: 6px; height: 28px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; margin-bottom: 6px; }
+    .illus-url { font-size: 10px; color: #555; flex: 1; }
+    .illus-dots { display: flex; flex-direction: column; gap: 2.5px; padding: 2px 4px; }
+    .illus-dot  { width: 3px; height: 3px; border-radius: 50%; background: var(--primary); }
+    .illus-content { background: var(--beige); border-radius: 6px; height: 36px; }
+
+    .illus-dropdown { background: #fff; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); padding: 4px 0; margin-top: 4px; width: 200px; margin-right: auto; }
+    .illus-menu-item { padding: 9px 14px; font-size: 12px; color: #333; display: flex; align-items: center; gap: 8px; }
+    .illus-menu-item.highlight { color: var(--primary); font-weight: 700; background: var(--info-bg); }
+    .illus-menu-item.dim { color: #aaa; }
+
+    .illus-ios-bar { background: rgba(250,250,255,0.95); border-radius: 10px; display: flex; align-items: center; justify-content: space-around; padding: 8px 12px; margin-top: 6px; border-top: 1px solid #ddd; }
+    .illus-ios-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .illus-ios-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .illus-ios-icon.share-icon { background: #007AFF; color: #fff; }
+    .illus-ios-label { font-size: 9px; color: #555; }
+
+    .illus-share-sheet { background: rgba(250,250,255,0.97); border-radius: 14px; padding: 12px 10px; margin-top: 6px; }
+    .illus-share-title { font-size: 10px; color: #888; text-align: center; margin-bottom: 8px; }
+    .illus-share-row   { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .illus-share-item  { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .illus-share-circle { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .illus-share-circle.highlight { border: 2.5px solid var(--primary); background: var(--info-bg); }
+    .illus-share-lbl { font-size: 9px; color: #555; text-align: center; }
+    .illus-share-lbl.highlight { color: var(--primary); font-weight: 700; }
+
+    .direct-install-banner {
+      background: linear-gradient(135deg, var(--primary), #2d6b52);
+      border-radius: 18px; padding: 16px;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 14px; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(31,74,58,0.35);
+    }
+    .direct-install-banner.hidden { display: none; }
+    .direct-install-icon  { font-size: 32px; flex-shrink: 0; }
+    .direct-install-text  { flex: 1; }
+    .direct-install-title { font-size: 15px; font-weight: 800; color: #fff; }
+    .direct-install-sub   { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .direct-install-arrow { color: var(--gold); font-size: 20px; flex-shrink: 0; }
+
+    .install-footer { margin-top: 16px; text-align: center; }
+    .install-skip-btn { background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 13px; cursor: pointer; padding: 8px 16px; }
+
+    /* ══ PRINT / PDF ══ */
+    @media print {
+      body > *:not(#printArea) { display: none !important; }
+      #printArea {
+        display: block !important; font-family: 'Tajawal', sans-serif;
+        direction: rtl; padding: 0; margin: 0; font-size: 14px;
+      }
+      .pp { width: 100%; max-width: 640px; margin: 0 auto; padding: 28px 24px; }
+      .pp-header { text-align: center; margin-bottom: 20px; }
+      .pp-icon { font-size: 52px; margin-bottom: 4px; }
+      .pp-main-title { font-size: 26px; font-weight: 900; color: #1F4A3A; }
+      .pp-date { font-size: 12px; color: #9AA89F; margin-top: 3px; }
+      .pp-date-hijri { font-size: 12px; color: #C5A028; font-weight: 600; }
+      .pp-total { background: #1F4A3A !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-radius: 14px; padding: 16px; text-align: center; margin-bottom: 18px; }
+      .pp-total-num { font-size: 46px; font-weight: 900; color: #C5A028; line-height: 1; }
+      .pp-total-lbl { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 5px; }
+      .pp-stats { display: flex; gap: 10px; margin-bottom: 18px; }
+      .pp-stat { flex: 1; background: #F5F0E6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-radius: 12px; padding: 12px; text-align: center; }
+      .pp-stat-num { font-size: 22px; font-weight: 900; color: #1F4A3A; }
+      .pp-stat-lbl { font-size: 11px; color: #9AA89F; margin-top: 3px; }
+      .pp-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+      .pp-table th, .pp-table td { padding: 10px 12px; border-bottom: 1px solid #E8E2D4; text-align: right; }
+      .pp-table th { font-size: 11px; color: #9AA89F; font-weight: 600; }
+      .pp-table td:first-child { color: #1F4A3A; font-weight: 700; font-size: 15px; }
+      .pp-table td:nth-child(2) { color: #9AA89F; font-size: 12px; }
+      .pp-table td:last-child { font-weight: 900; font-size: 18px; color: #1A2E23; text-align: left; }
+      .pp-periods { margin-bottom: 18px; }
+      .pp-periods-title { font-size: 13px; color: #5A6B62; font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid #E8E2D4; padding-bottom: 5px; }
+      .pp-period-row { font-size: 12px; color: #5A6B62; padding: 5px 0; border-bottom: 1px solid #F0EBE0; display: flex; justify-content: space-between; }
+      .pp-verse { text-align: center; font-size: 16px; font-weight: 700; color: #1F4A3A; line-height: 1.9; padding: 14px 0 10px; border-top: 1px solid #E8E2D4; }
+      .pp-footer { text-align: center; font-size: 11px; color: #9AA89F; }
+    }
+
+    @media (max-width: 380px) {
+      .total-number { font-size: 46px; }
+      .ctrl-btn { width: 34px; height: 34px; font-size: 18px; }
+      .count-display { font-size: 20px; min-width: 52px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ UPDATE BANNER (shown only when SW updates are available) ══ -->
+<div class="update-banner" id="updateBanner">
+  <span>🔄 يتوفر تحديث جديد للتطبيق</span>
+  <button class="update-banner-btn" id="updateBannerBtn">تحديث</button>
+</div>
+
+<!-- ══ OFFLINE ══ -->
+<div class="offline-banner" id="offlineBanner">📵 لا يوجد اتصال — التطبيق يعمل بالكامل بدون إنترنت</div>
+
+<!-- ══ HEADER ══ -->
+<header class="header">
+  <div class="header-actions-right">
+    <button class="header-icon-btn" id="btnStats"  title="الإحصائيات" aria-label="الإحصائيات">📊</button>
+    <button class="header-icon-btn" id="btnInstall" title="تثبيت التطبيق" aria-label="تثبيت" style="display:none">📲</button>
+  </div>
+  <div class="header-actions-left">
+    <button class="header-icon-btn" id="btnReset" title="إعادة تعيين" aria-label="إعادة تعيين">↺</button>
+  </div>
+  <img class="mosque-icon" src="mosque-icon.svg" alt="مسجد"
+    onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><text y=%2252%22 font-size=%2248%22>🕌</text></svg>'" />
+  <h1 class="header-title">قضاء الصلوات</h1>
+  <div class="header-dates">
+    <div class="header-date-greg" id="headerDateGreg"></div>
+    <div class="header-date-hijri" id="headerDateHijri"></div>
+  </div>
+</header>
+
+<!-- ══ TOTAL ══ -->
+<div class="total-section">
+  <div class="total-card">
+    <div class="total-number" id="totalNumber">0</div>
+    <div class="total-label">صلاة متبقية إجمالاً</div>
+    <div class="total-sub" id="totalSubLabel"></div>
+  </div>
+</div>
+
+<!-- ══ SCROLL ══ -->
+<main class="scroll-area">
+
+  <!-- Notification Banner -->
+  <div class="notify-banner" id="notifyBanner" style="display:none">
+    <div class="notify-banner-icon">🔔</div>
+    <div class="notify-banner-body">
+      <div class="notify-banner-title">تفعيل التذكير اليومي</div>
+      <div class="notify-banner-sub">إشعار يومي الساعة 2 ظهراً — يعمل بدون إنترنت</div>
+    </div>
+    <button class="notify-banner-btn" id="btnEnableNotify">تفعيل</button>
+  </div>
+
+  <!-- Stats (collapsed by default) -->
+  <div class="stats-card" id="statsSection" style="display:none">
+    <div class="sec-title">الإحصائيات</div>
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-lbl">إجمالي<br>المتبقية</div>
+      </div>
+      <div class="stat-box gold">
+        <div class="stat-num" id="statPerPrayer">0</div>
+        <div class="stat-lbl">لكل<br>صلاة</div>
+      </div>
+      <div class="stat-box green">
+        <div class="stat-num" id="statPrayed">0</div>
+        <div class="stat-lbl">تم<br>قضاؤها</div>
+      </div>
+    </div>
+    <div class="progress-bar-wrap" id="progressWrap" style="display:none">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progressLabel"></div>
+  </div>
+
+  <!-- Prayers Card -->
+  <div class="prayers-card" id="prayersCard"></div>
+
+  <!-- Quick Add -->
+  <div class="quick-card">
+    <div class="quick-title">إضافة سريعة لجميع الصلوات الخمس</div>
+    <div class="quick-row">
+      <button class="quick-btn" onclick="quickAddAll(1)">+1<span>يوم</span></button>
+      <button class="quick-btn" onclick="quickAddAll(7)">+7<span>أسبوع</span></button>
+      <button class="quick-btn" onclick="quickAddAll(30)">+30<span>شهر</span></button>
+      <button class="quick-btn" onclick="quickAddAll(365)">+365<span>سنة</span></button>
+    </div>
+  </div>
+
+  <!-- Verse -->
+  <div class="verse-card">
+    <p class="verse-text">﴿ وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ ﴾</p>
+    <p class="verse-sub">تطبيق قضاء الصلوات — يعمل بدون إنترنت</p>
+  </div>
+
+  <p class="tip">اضغط على الرقم لتعديله مباشرةً</p>
+</main>
+
+<!-- ══ FAB ══ -->
+<div class="fab-row">
+  <button class="fab-btn fab-share" id="btnShare">⎙ مشاركة التقرير</button>
+  <button class="fab-btn fab-calc"  id="btnCalc" title="الحاسبة" aria-label="الحاسبة">🗓</button>
+</div>
+
+<!-- ══ EDIT MODAL ══ -->
+<div class="modal-overlay" id="editModal" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <h2 class="modal-title" id="editModalTitle">تعديل العداد</h2>
+    <input class="modal-input" id="editInput" type="number" inputmode="numeric" min="0" autocomplete="off" />
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-cancel"  id="editCancel">إلغاء</button>
+      <button class="modal-btn modal-btn-confirm" id="editConfirm">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RESET CONFIRM ══ -->
+<div class="confirm-overlay" id="confirmReset" role="dialog" aria-modal="true">
+  <div class="confirm-card">
+    <div class="confirm-icon">⚠️</div>
+    <div class="confirm-title">إعادة تعيين الكل؟</div>
+    <div class="confirm-msg">سيتم مسح جميع الأرقام وإعادتها للصفر. لا يمكن التراجع عن هذا الإجراء.</div>
+    <div class="confirm-btns">
+      <button class="confirm-btn confirm-btn-cancel" id="resetCancel">إلغاء</button>
+      <button class="confirm-btn confirm-btn-ok"     id="resetConfirm">تأكيد الحذف</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SHARE SHEET ══ -->
+<div class="sheet-overlay" id="shareSheet" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <button class="sheet-close-btn" id="shareSheetClose" aria-label="إغلاق">✕</button>
+      <span class="sheet-title">مشاركة التقرير</span>
+      <div style="width:32px"></div>
+    </div>
+    <div class="sheet-body" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+      <div class="shareable-card" id="shareableCard"></div>
+      <div class="share-actions">
+        <button class="share-action-btn btn-share-text" id="btnShareText">⎙ مشاركة</button>
+        <button class="share-action-btn btn-share-pdf"  id="btnSharePdf">📄 PDF</button>
+      </div>
+      <p class="share-hint">اختر "حفظ كـ PDF" عند فتح نافذة الطباعة</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CALCULATOR SHEET ══ -->
+<div class="sheet-overlay" id="calcSheet" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <button class="sheet-close-btn" id="calcSheetClose" aria-label="إغلاق">✕</button>
+      <span class="sheet-title">حاسبة الصلوات الفائتة</span>
+      <div style="width:32px"></div>
+    </div>
+    <div class="sheet-body" id="calcSheetBody"></div>
+  </div>
+</div>
+
+<!-- ══ INSTALL GUIDE ══ -->
+<div class="install-overlay" id="installOverlay" role="dialog" aria-modal="true">
+  <div class="install-sheet">
+    <div class="install-drag"></div>
+    <div class="install-sheet-top">
+      <div class="install-sheet-title">📲 ثبّت التطبيق</div>
+      <button class="install-close-btn" id="installCloseBtn" aria-label="إغلاق">✕</button>
+    </div>
+    <div class="install-tab-bar">
+      <button class="install-tab" id="tabAndroid" onclick="switchInstallTab('android')">🤖 Android</button>
+      <button class="install-tab" id="tabIos"     onclick="switchInstallTab('ios')">🍎 iPhone</button>
+    </div>
+    <div class="install-body">
+      <div class="direct-install-banner hidden" id="directInstallBanner">
+        <div class="direct-install-icon">⚡</div>
+        <div class="direct-install-text">
+          <div class="direct-install-title">تثبيت فوري</div>
+          <div class="direct-install-sub">اضغط هنا لتثبيت التطبيق مباشرةً</div>
+        </div>
+        <div class="direct-install-arrow">←</div>
+      </div>
+
+      <!-- Android -->
+      <div class="install-panel" id="panelAndroid">
+        <div class="install-steps">
+          <div class="install-step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">افتح التطبيق في Chrome</div>
+              <div class="step-desc">تأكد من استخدام Google Chrome أو Samsung Internet.</div>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">اضغط على ⋮ في أعلى المتصفح</div>
+              <div class="step-desc">النقاط الثلاث في أعلى يمين أو يسار الشاشة.</div>
+              <div class="illus-wrap">
+                <div class="illus-browser">
+                  <div class="illus-browser-bar">
+                    <span class="illus-url">qadaa-prayers.app</span>
+                    <div class="illus-dots"><div class="illus-dot"></div><div class="illus-dot"></div><div class="illus-dot"></div></div>
+                  </div>
+                  <div class="illus-content"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">اختر "إضافة إلى الشاشة الرئيسية"</div>
+              <div class="step-desc">ستجد الخيار في القائمة المنسدلة.</div>
+              <div class="illus-wrap">
+                <div class="illus-dropdown">
+                  <div class="illus-menu-item dim">🔖 الإشارات المرجعية</div>
+                  <div class="illus-menu-item highlight">⊕ إضافة إلى الشاشة الرئيسية</div>
+                  <div class="illus-menu-item dim">⚙ الإعدادات</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">اضغط "إضافة" للتأكيد ✅</div>
+              <div class="step-desc">سيعمل التطبيق بدون إنترنت بعد التثبيت، وستصله إشعارات يومية الساعة 2 ظهراً.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- iOS -->
+      <div class="install-panel" id="panelIos">
+        <div class="install-steps">
+          <div class="install-step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">افتح التطبيق في Safari</div>
+              <div class="step-desc">يجب استخدام Safari — Chrome وFirefox على iOS لا يدعمان التثبيت.</div>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">اضغط زر المشاركة ⬆ في أسفل الشاشة</div>
+              <div class="step-desc">الزر يشبه مربعاً وسهماً يتجه للأعلى.</div>
+              <div class="illus-wrap">
+                <div class="illus-ios-bar">
+                  <div class="illus-ios-btn"><div class="illus-ios-icon" style="background:#eee;color:#555;font-size:16px">←</div><div class="illus-ios-label">رجوع</div></div>
+                  <div class="illus-ios-btn"><div class="illus-ios-icon share-icon">⬆</div><div class="illus-ios-label" style="color:var(--primary);font-weight:700">مشاركة</div></div>
+                  <div class="illus-ios-btn"><div class="illus-ios-icon" style="background:#eee;color:#555;font-size:14px">⊞</div><div class="illus-ios-label">تبويبات</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">اختر "إضافة إلى الشاشة الرئيسية"</div>
+              <div class="step-desc">مرّر للأسفل في ورقة المشاركة.</div>
+              <div class="illus-wrap">
+                <div class="illus-share-sheet">
+                  <div class="illus-share-title">شارك عبر</div>
+                  <div class="illus-share-row">
+                    <div class="illus-share-item"><div class="illus-share-circle" style="background:#25D366">💬</div><div class="illus-share-lbl">واتساب</div></div>
+                    <div class="illus-share-item"><div class="illus-share-circle highlight">＋</div><div class="illus-share-lbl highlight">إضافة للشاشة</div></div>
+                    <div class="illus-share-item"><div class="illus-share-circle" style="background:#eee">📋</div><div class="illus-share-lbl">نسخ الرابط</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">اضغط "إضافة" في أعلى يمين الشاشة ✅</div>
+              <div class="step-desc">سيُضاف التطبيق وسيعمل بدون إنترنت تماماً.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="install-footer">
+        <button class="install-skip-btn" id="installSkipBtn">لا تُظهر هذا مجدداً</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PRINT AREA ══ -->
+<div id="printArea" style="display:none"></div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════
+const STORAGE_KEY = 'prayer_tracker_v3';   // ← never change this key
+const CALC_KEY    = 'prayer_calc_v2';
+
+const PRAYERS = [
+  { id: 'fajr',    name: 'الفجر',  time: 'قبل الشروق'   },
+  { id: 'dhuhr',   name: 'الظهر',  time: 'منتصف النهار' },
+  { id: 'asr',     name: 'العصر',  time: 'بعد الظهر'    },
+  { id: 'maghrib', name: 'المغرب', time: 'عند الغروب'   },
+  { id: 'isha',    name: 'العشاء', time: 'بعد العشاء'   },
+];
+
+// ══════════════════════════════════════════════
+//  STATE  — loaded from localStorage on boot
+// ══════════════════════════════════════════════
+let state = {
+  version: 3,
+  lastUpdated: '',
+  lastInteractionDate: '',
+  prayers: { fajr: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 },
+  prayedTotal: 0,
+  originalTotal: 0,
+};
+let calcPeriods = [];
+let calcMode    = 'date';
+let showStats   = false;
+let swReg       = null;   // ServiceWorkerRegistration
+let notifyEnabled = false;
+
+// ══════════════════════════════════════════════
+//  STORAGE  — all reads/writes use this layer
+// ══════════════════════════════════════════════
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      state = {
+        ...state,
+        ...p,
+        prayers: { ...state.prayers, ...(p.prayers || {}) },
+      };
+    }
+    const rc = localStorage.getItem(CALC_KEY);
+    if (rc) {
+      const pc = JSON.parse(rc);
+      calcPeriods = pc.periods || [];
+      calcMode    = pc.mode    || 'date';
+    }
+    notifyEnabled = localStorage.getItem('notify_enabled') === '1';
+  } catch { /* ignore */ }
+}
+
+function saveData() {
+  try {
+    state.lastUpdated = new Date().toISOString();
+    state.lastInteractionDate = todayStr();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch { /* ignore */ }
+}
+
+function saveCalc() {
+  try { localStorage.setItem(CALC_KEY, JSON.stringify({ periods: calcPeriods, mode: calcMode })); } catch { /* ignore */ }
+}
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+// ══════════════════════════════════════════════
+//  COUNTER LOGIC
+// ══════════════════════════════════════════════
+function updateCount(id, delta) {
+  const next = (state.prayers[id] ?? 0) + delta;
+  if (next < 0) return;
+  if (delta < 0) state.prayedTotal = (state.prayedTotal || 0) + Math.abs(delta);
+  state.prayers[id] = next;
+  saveData(); renderCounters(); renderTotal(true); renderStats();
+}
+
+function setCount(id, val) {
+  const v = Math.max(0, parseInt(val, 10) || 0);
+  state.prayers[id] = v;
+  saveData(); renderCounters(); renderTotal(true); renderStats();
+}
+
+function addToPrayers(daysPerPrayer) {
+  PRAYERS.forEach(p => { state.prayers[p.id] = (state.prayers[p.id] ?? 0) + Math.round(daysPerPrayer); });
+  if (!state.originalTotal) state.originalTotal = getTotal();
+  saveData(); renderCounters(); renderTotal(true); renderStats();
+}
+
+function quickAddAll(days) { addToPrayers(days); }
+
+function resetAll() {
+  PRAYERS.forEach(p => { state.prayers[p.id] = 0; });
+  state.prayedTotal  = 0;
+  state.originalTotal = 0;
+  saveData(); renderCounters(); renderTotal(false); renderStats();
+}
+
+// ══════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════
+function getTotal() { return Object.values(state.prayers).reduce((s, v) => s + v, 0); }
+function fmtAr(n)   { return Math.round(n).toLocaleString('ar-EG'); }
+function fmtYrs(days) {
+  const yrs = days / 365.25;
+  if (yrs >= 1)  return `(${yrs.toFixed(1)} سنة)`;
+  const months = days / 30.44;
+  if (months >= 1) return `(${months.toFixed(0)} شهر)`;
+  return `(${Math.round(days)} يوم)`;
+}
+
+function renderTotal(animate) {
+  const total = getTotal();
+  const el = document.getElementById('totalNumber');
+  el.textContent = fmtAr(total);
+  if (animate) {
+    el.classList.remove('bump');
+    void el.offsetWidth; // force reflow
+    el.classList.add('bump');
+    setTimeout(() => el.classList.remove('bump'), 200);
+  }
+  const perPrayer = total / 5;
+  const yrs = perPrayer / 365.25;
+  if (total > 0) {
+    document.getElementById('totalSubLabel').textContent =
+      yrs >= 0.5 ? `≈ ${yrs.toFixed(1)} سنة من الصلوات` : `≈ ${Math.round(perPrayer)} يوم لكل صلاة`;
+  } else {
+    document.getElementById('totalSubLabel').textContent = 'لا توجد صلوات فائتة مسجلة';
+  }
+}
+
+function renderCounters() {
+  PRAYERS.forEach(p => {
+    const cnt = document.getElementById('cnt_' + p.id);
+    const dec = document.getElementById('dec_' + p.id);
+    if (cnt) cnt.textContent = fmtAr(state.prayers[p.id] ?? 0);
+    if (dec) dec.disabled = (state.prayers[p.id] ?? 0) <= 0;
+  });
+}
+
+function renderStats() {
+  const total  = getTotal();
+  const prayed = state.prayedTotal || 0;
+  const orig   = state.originalTotal || 0;
+  document.getElementById('statTotal').textContent     = fmtAr(total);
+  document.getElementById('statPerPrayer').textContent = fmtAr(total / 5);
+  document.getElementById('statPrayed').textContent    = fmtAr(prayed);
+
+  if (orig > 0 && prayed > 0) {
+    const pct = Math.min(100, (prayed / (orig + prayed)) * 100);
+    document.getElementById('progressWrap').style.display = 'block';
+    document.getElementById('progressFill').style.width   = pct.toFixed(1) + '%';
+    document.getElementById('progressLabel').textContent  = `قضيت ${fmtAr(prayed)} صلاة — ${pct.toFixed(0)}% من الهدف`;
+  } else {
+    document.getElementById('progressWrap').style.display = 'none';
+    document.getElementById('progressLabel').textContent  = '';
+  }
+}
+
+function buildPrayersCard() {
+  const card = document.getElementById('prayersCard');
+  card.innerHTML = '';
+  PRAYERS.forEach((p) => {
+    const row = document.createElement('div');
+    row.className = 'prayer-row';
+    row.innerHTML = `
+      <div class="prayer-info">
+        <div class="prayer-name">${p.name}</div>
+        <div class="prayer-time">${p.time}</div>
+      </div>
+      <div class="counter-section">
+        <button class="ctrl-btn ctrl-increment" id="inc_${p.id}" aria-label="زيادة ${p.name}">+</button>
+        <div class="count-display" id="cnt_${p.id}" role="button" tabindex="0" aria-label="تعديل ${p.name}">0</div>
+        <button class="ctrl-btn ctrl-decrement" id="dec_${p.id}" aria-label="إنقاص ${p.name}" disabled>−</button>
+      </div>`;
+    card.appendChild(row);
+    document.getElementById('inc_' + p.id).addEventListener('click', () => updateCount(p.id,  1));
+    document.getElementById('dec_' + p.id).addEventListener('click', () => updateCount(p.id, -1));
+    const cntEl = document.getElementById('cnt_' + p.id);
+    cntEl.addEventListener('click',   () => openEditModal(p));
+    cntEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openEditModal(p); });
+  });
+}
+
+// ══════════════════════════════════════════════
+//  DATES
+// ══════════════════════════════════════════════
+function renderDate() {
+  const now  = new Date();
+  const greg = now.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
+  document.getElementById('headerDateGreg').textContent = greg;
+  try {
+    const hijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { year: 'numeric', month: 'long', day: 'numeric' }).format(now);
+    document.getElementById('headerDateHijri').textContent = '🌙 ' + hijri;
+  } catch {
+    document.getElementById('headerDateHijri').textContent = '';
+  }
+}
+
+function getDateStrings() {
+  const now  = new Date();
+  const greg = now.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
+  let hijri  = '';
+  try { hijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { year: 'numeric', month: 'long', day: 'numeric' }).format(now); } catch { hijri = ''; }
+  return { greg, hijri };
+}
+
+// ══════════════════════════════════════════════
+//  EDIT MODAL
+// ══════════════════════════════════════════════
+let currentEditId = null;
+
+function openEditModal(prayer) {
+  currentEditId = prayer.id;
+  document.getElementById('editModalTitle').textContent = 'تعديل عدد ' + prayer.name;
+  document.getElementById('editInput').value = state.prayers[prayer.id] ?? 0;
+  document.getElementById('editModal').classList.add('open');
+  setTimeout(() => { const el = document.getElementById('editInput'); if (el) { el.focus(); el.select(); } }, 150);
+}
+function closeEditModal() { document.getElementById('editModal').classList.remove('open'); currentEditId = null; }
+function confirmEdit() {
+  if (!currentEditId) return;
+  setCount(currentEditId, document.getElementById('editInput').value);
+  closeEditModal();
+}
+document.getElementById('editCancel').addEventListener('click', closeEditModal);
+document.getElementById('editConfirm').addEventListener('click', confirmEdit);
+document.getElementById('editInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmEdit(); if (e.key === 'Escape') closeEditModal(); });
+document.getElementById('editModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeEditModal(); });
+
+// ══════════════════════════════════════════════
+//  RESET
+// ══════════════════════════════════════════════
+document.getElementById('btnReset').addEventListener('click', () => document.getElementById('confirmReset').classList.add('open'));
+document.getElementById('resetCancel').addEventListener('click', () => document.getElementById('confirmReset').classList.remove('open'));
+document.getElementById('resetConfirm').addEventListener('click', () => {
+  document.getElementById('confirmReset').classList.remove('open');
+  resetAll();
+});
+document.getElementById('confirmReset').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('confirmReset').classList.remove('open'); });
+
+// ══════════════════════════════════════════════
+//  STATS TOGGLE
+// ══════════════════════════════════════════════
+document.getElementById('btnStats').addEventListener('click', () => {
+  showStats = !showStats;
+  document.getElementById('statsSection').style.display = showStats ? 'block' : 'none';
+  document.getElementById('btnStats').classList.toggle('active-state', showStats);
+  if (showStats) renderStats();
+});
+
+// ══════════════════════════════════════════════
+//  SHARE SHEET
+// ══════════════════════════════════════════════
+function buildShareableCard() {
+  const { greg, hijri } = getDateStrings();
+  const total  = getTotal();
+  const prayed = state.prayedTotal || 0;
+  const orig   = state.originalTotal || 0;
+
+  const rows = PRAYERS.map(p => `
+    <div class="sc-row">
+      <div><div class="sc-row-name">${p.name}</div><div class="sc-row-time">${p.time}</div></div>
+      <div class="sc-row-count">${fmtAr(state.prayers[p.id] ?? 0)}</div>
+    </div>`).join('');
+
+  let progressHtml = '';
+  if (orig > 0 && prayed > 0) {
+    const pct = Math.min(100, (prayed / (orig + prayed)) * 100);
+    progressHtml = `
+      <div class="sc-progress-bar"><div class="sc-progress-fill" style="width:${pct.toFixed(1)}%"></div></div>
+      <div class="sc-progress-lbl">قضيت ${fmtAr(prayed)} صلاة — ${pct.toFixed(0)}% من الهدف</div>`;
+  }
+
+  document.getElementById('shareableCard').innerHTML = `
+    <div class="sc-header">
+      <img class="sc-icon" src="mosque-icon.svg" alt="🕌"
+        onerror="this.outerHTML='<div style=&quot;font-size:44px;margin-bottom:6px&quot;>🕌</div>'"/>
+      <div class="sc-title">قضاء الصلوات</div>
+      <div class="sc-date-greg">${greg}</div>
+      ${hijri ? `<div class="sc-date-hijri">🌙 ${hijri}</div>` : ''}
+    </div>
+    <div class="sc-total-box">
+      <div class="sc-total-num">${fmtAr(total)}</div>
+      <div class="sc-total-lbl">صلاة متبقية إجمالاً</div>
+    </div>
+    <div class="sc-rows-card">${rows}</div>
+    ${progressHtml}
+    <div class="sc-verse">﴿ وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ ﴾</div>
+    <div class="sc-app-tag">تطبيق قضاء الصلوات</div>`;
+}
+
+document.getElementById('btnShare').addEventListener('click', () => {
+  buildShareableCard();
+  document.getElementById('shareSheet').classList.add('open');
+});
+document.getElementById('shareSheetClose').addEventListener('click', () => document.getElementById('shareSheet').classList.remove('open'));
+document.getElementById('shareSheet').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('shareSheet').classList.remove('open'); });
+
+document.getElementById('btnShareText').addEventListener('click', async () => {
+  const { greg, hijri } = getDateStrings();
+  const lines = PRAYERS.map(p => `${p.name}: ${(state.prayers[p.id] ?? 0).toLocaleString('ar-EG')} صلاة`).join('\n');
+  const prayed = state.prayedTotal || 0;
+  const text = [
+    '🕌 قضاء الصلوات',
+    `📅 ${greg}`,
+    hijri ? `🌙 ${hijri}` : '',
+    '',
+    `إجمالي المتبقية: ${getTotal().toLocaleString('ar-EG')} صلاة`,
+    prayed > 0 ? `✅ تم قضاء: ${prayed.toLocaleString('ar-EG')} صلاة` : '',
+    '',
+    lines,
+    '',
+    '﴿ وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ ﴾',
+    'تطبيق قضاء الصلوات',
+  ].filter(Boolean).join('\n');
+
+  if (navigator.share) {
+    try { await navigator.share({ title: 'تقرير الصلوات الفائتة', text }); } catch { /* cancelled */ }
+  } else {
+    try { await navigator.clipboard.writeText(text); alert('تم نسخ التقرير!'); } catch { alert(text); }
+  }
+});
+
+// ══════════════════════════════════════════════
+//  PDF
+// ══════════════════════════════════════════════
+document.getElementById('btnSharePdf').addEventListener('click', () => {
+  generatePrintArea();
+  document.getElementById('shareSheet').classList.remove('open');
+  setTimeout(() => window.print(), 350);
+});
+
+function generatePrintArea() {
+  const { greg, hijri } = getDateStrings();
+  const total  = getTotal();
+  const prayed = state.prayedTotal || 0;
+  const orig   = state.originalTotal || 0;
+
+  const statsHtml = `
+    <div class="pp-stats">
+      <div class="pp-stat"><div class="pp-stat-num">${total.toLocaleString('ar-EG')}</div><div class="pp-stat-lbl">إجمالي المتبقية</div></div>
+      <div class="pp-stat"><div class="pp-stat-num">${Math.round(total/5).toLocaleString('ar-EG')}</div><div class="pp-stat-lbl">لكل صلاة</div></div>
+      ${prayed > 0 ? `<div class="pp-stat"><div class="pp-stat-num">${prayed.toLocaleString('ar-EG')}</div><div class="pp-stat-lbl">تم قضاؤها</div></div>` : ''}
+    </div>`;
+
+  const validPeriods = calcPeriods.filter(p => p.from && p.to);
+  let periodsHtml = '';
+  if (validPeriods.length > 0) {
+    const pRows = validPeriods.map(p => {
+      if (calcMode === 'date') {
+        const days = Math.floor((new Date(p.to) - new Date(p.from)) / 86400000);
+        const fl   = new Date(p.from).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
+        const tl   = new Date(p.to  ).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
+        return `<div class="pp-period-row"><span>من ${fl} إلى ${tl}</span><span>${days.toLocaleString('ar-EG')} يوم</span></div>`;
+      } else {
+        const days = Math.round((parseFloat(p.to) - parseFloat(p.from)) * 365.25);
+        return `<div class="pp-period-row"><span>من عمر ${p.from} إلى ${p.to} سنة</span><span>${days.toLocaleString('ar-EG')} يوم</span></div>`;
+      }
+    }).join('');
+    periodsHtml = `<div class="pp-periods"><div class="pp-periods-title">📅 فترات الغياب</div>${pRows}</div>`;
+  }
+
+  const tableRows = PRAYERS.map(p => `
+    <tr>
+      <td>${p.name}</td>
+      <td>${p.time}</td>
+      <td style="text-align:left">${(state.prayers[p.id] ?? 0).toLocaleString('ar-EG')}</td>
+    </tr>`).join('');
+
+  document.getElementById('printArea').innerHTML = `
+    <div class="pp">
+      <div class="pp-header">
+        <div class="pp-icon">🕌</div>
+        <div class="pp-main-title">قضاء الصلوات</div>
+        <div class="pp-date">${greg}</div>
+        ${hijri ? `<div class="pp-date-hijri">🌙 ${hijri}</div>` : ''}
+      </div>
+      <div class="pp-total">
+        <div class="pp-total-num">${total.toLocaleString('ar-EG')}</div>
+        <div class="pp-total-lbl">صلاة متبقية إجمالاً</div>
+      </div>
+      ${statsHtml}
+      <table class="pp-table">
+        <thead><tr><th>الصلاة</th><th>الوقت</th><th style="text-align:left">العدد</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      ${periodsHtml}
+      <div class="pp-verse">﴿ وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ ﴾</div>
+      <div class="pp-footer">تطبيق قضاء الصلوات — ${greg}</div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════
+//  CALCULATOR SHEET
+// ══════════════════════════════════════════════
+document.getElementById('btnCalc').addEventListener('click', () => { renderCalcSheet(); document.getElementById('calcSheet').classList.add('open'); });
+document.getElementById('calcSheetClose').addEventListener('click', () => document.getElementById('calcSheet').classList.remove('open'));
+document.getElementById('calcSheet').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('calcSheet').classList.remove('open'); });
+
+function addPeriod()           { calcPeriods.push({ from: '', to: '' }); saveCalc(); renderCalcSheet(); }
+function removePeriod(i)       { calcPeriods.splice(i, 1); saveCalc(); renderCalcSheet(); }
+function updatePeriod(i, f, v) { calcPeriods[i][f] = v; saveCalc(); renderCalcResult(); }
+function switchMode(mode)      { calcMode = mode; saveCalc(); renderCalcSheet(); }
+
+function calcFromDates() {
+  let totalDays = 0; const errors = []; const valid = [];
+  calcPeriods.forEach((p, i) => {
+    if (!p.from || !p.to) return;
+    const f = new Date(p.from); const t = new Date(p.to);
+    if (isNaN(f) || isNaN(t)) { errors.push(`الفترة ${i+1}: تاريخ غير صالح`); return; }
+    if (t <= f) { errors.push(`الفترة ${i+1}: تاريخ العودة يجب أن يكون بعد تاريخ الترك`); return; }
+    const days = Math.floor((t - f) / 86400000);
+    if (days > 36500) { errors.push(`الفترة ${i+1}: مدة غير منطقية`); return; }
+    totalDays += days;
+    valid.push({ from: p.from, to: p.to, days,
+      fromLbl: f.toLocaleDateString('ar-SA', { year:'numeric', month:'short', day:'numeric' }),
+      toLbl:   t.toLocaleDateString('ar-SA', { year:'numeric', month:'short', day:'numeric' }) });
+  });
+  return { totalDays, errors, valid };
+}
+
+function calcFromAges() {
+  let totalDays = 0; const errors = []; const valid = [];
+  calcPeriods.forEach((p, i) => {
+    const f = parseFloat(p.from); const t = parseFloat(p.to);
+    if (isNaN(f) || isNaN(t)) return;
+    if (f < 7)   { errors.push(`الفترة ${i+1}: عمر الترك لا يُعقل`); return; }
+    if (t <= f)  { errors.push(`الفترة ${i+1}: عمر العودة يجب أن يكون أكبر`); return; }
+    if (t-f > 80){ errors.push(`الفترة ${i+1}: الفترة طويلة جداً`); return; }
+    const days = (t - f) * 365.25;
+    totalDays += days;
+    valid.push({ from: p.from, to: p.to, days, fromLbl: `عمر ${p.from}`, toLbl: `عمر ${p.to}` });
+  });
+  return { totalDays, errors, valid };
+}
+
+function periodNoteHtml(p) {
+  if (calcMode === 'date') {
+    if (!p.from || !p.to) return 'اختر تاريخ الترك وتاريخ العودة';
+    const f = new Date(p.from); const t = new Date(p.to);
+    if (isNaN(f) || isNaN(t) || t <= f) return 'تأكد من صحة التواريخ';
+    const days = Math.floor((t - f) / 86400000);
+    return `📅 ${days.toLocaleString('ar-EG')} يوم × 5 = <strong>${(days*5).toLocaleString('ar-EG')} صلاة</strong>`;
+  } else {
+    const f = parseFloat(p.from); const t = parseFloat(p.to);
+    if (isNaN(f) || isNaN(t) || t <= f) return 'أدخل عمر الترك وعمر العودة';
+    const days = Math.round((t - f) * 365.25);
+    return `📅 ${days.toLocaleString('ar-EG')} يوم × 5 = <strong>${(days*5).toLocaleString('ar-EG')} صلاة</strong>`;
+  }
+}
+
+function renderCalcResult() {
+  const resultEl = document.getElementById('calcResultArea');
+  if (!resultEl) return;
+  const { totalDays, errors, valid } = calcMode === 'date' ? calcFromDates() : calcFromAges();
+  const totalPrayers = Math.round(totalDays) * 5;
+  const perPrayer    = Math.round(totalDays);
+  const hasValid     = valid.length > 0;
+
+  let html = errors.map(e => `<div class="calc-error">⚠️ ${e}</div>`).join('');
+  if (hasValid) {
+    html += `
+      <div class="calc-result">
+        <div class="calc-result-num">${totalPrayers.toLocaleString('ar-EG')}</div>
+        <div class="calc-result-lbl">إجمالي الصلوات المحتسبة</div>
+        <div class="calc-result-sub">${perPrayer.toLocaleString('ar-EG')} يوم × 5 ${fmtYrs(perPrayer)}</div>
+      </div>
+      <div class="calc-breakdown">`;
+    valid.forEach(p => {
+      html += `<div class="calc-breakdown-row">
+        <span class="calc-breakdown-name">${p.fromLbl} → ${p.toLbl}</span>
+        <span class="calc-breakdown-val">${Math.round(p.days*5).toLocaleString('ar-EG')} صلاة</span>
+      </div>`;
+    });
+    if (valid.length > 1) {
+      html += `<div class="calc-breakdown-row" style="background:var(--info-bg)">
+        <span class="calc-breakdown-name" style="color:var(--text-muted)">لكل صلاة واحدة</span>
+        <span class="calc-breakdown-val">${perPrayer.toLocaleString('ar-EG')} يوم</span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `<button class="calc-add-btn" id="calcAddBtn" ${(!hasValid || errors.length) ? 'disabled' : ''}>
+    ＋ إضافة ${hasValid ? totalPrayers.toLocaleString('ar-EG') : ''} صلاة للعداد
+  </button>`;
+
+  resultEl.innerHTML = html;
+
+  if (hasValid && !errors.length) {
+    document.getElementById('calcAddBtn').addEventListener('click', () => {
+      if (!confirm(`إضافة ${totalPrayers.toLocaleString('ar-EG')} صلاة للعداد؟`)) return;
+      if (!state.originalTotal) state.originalTotal = getTotal() + totalPrayers;
+      addToPrayers(perPrayer);
+      document.getElementById('calcSheet').classList.remove('open');
+    });
+  }
+}
+
+function renderCalcSheet() {
+  const introDate = `أدخل تاريخ ترك الصلاة وتاريخ العودة إليها. يمكنك إضافة أكثر من فترة.<br>
+    <strong>مثال:</strong> تركت في 2015/01/01 وعدت في 2018/06/15 = 1261 يوم × 5 = 6305 صلاة.`;
+  const introAge = `أدخل عمرك عند ترك الصلاة والعمر الذي عدت فيه.<br>
+    <strong>مثال:</strong> تركت عمر 15 وعدت عمر 20 = 5 سنوات × 365 = 9130 صلاة.`;
+
+  const periodsHtml = calcPeriods.map((p, i) => {
+    if (calcMode === 'date') {
+      return `
+        <div class="period-card">
+          <div class="period-label">الفترة ${i+1}</div>
+          <button class="period-delete" onclick="removePeriod(${i})" aria-label="حذف">✕</button>
+          <div class="period-row">
+            <label>تاريخ الترك</label>
+            <input class="period-input" type="date" value="${p.from||''}" max="${todayStr()}"
+              onchange="updatePeriod(${i},'from',this.value)" oninput="updatePeriod(${i},'from',this.value)" />
+          </div>
+          <div class="period-row">
+            <label>تاريخ العودة</label>
+            <input class="period-input" type="date" value="${p.to||''}" max="${todayStr()}"
+              onchange="updatePeriod(${i},'to',this.value)" oninput="updatePeriod(${i},'to',this.value)" />
+          </div>
+          <div class="period-note">${periodNoteHtml(p)}</div>
+        </div>`;
+    } else {
+      return `
+        <div class="period-card">
+          <div class="period-label">الفترة ${i+1}</div>
+          <button class="period-delete" onclick="removePeriod(${i})" aria-label="حذف">✕</button>
+          <div class="period-row">
+            <label>عمر الترك (سنة)</label>
+            <input class="period-input" type="number" inputmode="decimal" min="7" max="120"
+              placeholder="مثال: 15" value="${p.from||''}"
+              onchange="updatePeriod(${i},'from',this.value)" oninput="updatePeriod(${i},'from',this.value)" />
+          </div>
+          <div class="period-row">
+            <label>عمر العودة (سنة)</label>
+            <input class="period-input" type="number" inputmode="decimal" min="7" max="120"
+              placeholder="مثال: 20" value="${p.to||''}"
+              onchange="updatePeriod(${i},'to',this.value)" oninput="updatePeriod(${i},'to',this.value)" />
+          </div>
+          <div class="period-note">${periodNoteHtml(p)}</div>
+        </div>`;
+    }
+  }).join('');
+
+  document.getElementById('calcSheetBody').innerHTML = `
+    <div class="tab-bar">
+      <button class="tab-btn ${calcMode==='date'?'active':''}" onclick="switchMode('date')">📅 بالتاريخ</button>
+      <button class="tab-btn ${calcMode==='age' ?'active':''}" onclick="switchMode('age')">🎂 بالعمر</button>
+    </div>
+    <div class="calc-intro">${calcMode === 'date' ? introDate : introAge}</div>
+    ${periodsHtml}
+    <button class="add-period-btn" onclick="addPeriod()">＋ إضافة فترة</button>
+    <div id="calcResultArea"></div>`;
+
+  renderCalcResult();
+}
+
+// ══════════════════════════════════════════════
+//  NOTIFICATIONS  — 2 PM daily, offline-capable
+// ══════════════════════════════════════════════
+
+function checkNotifyBanner() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default' && !notifyEnabled)
+    document.getElementById('notifyBanner').style.display = 'flex';
+  else if (Notification.permission === 'granted' && notifyEnabled)
+    document.getElementById('notifyBanner').style.display = 'none';
+}
+
+document.getElementById('btnEnableNotify').addEventListener('click', async () => {
+  if (!('Notification' in window)) { alert('متصفحك لا يدعم الإشعارات'); return; }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    notifyEnabled = true;
+    localStorage.setItem('notify_enabled', '1');
+    document.getElementById('notifyBanner').style.display = 'none';
+    // Tell the Service Worker to schedule the daily 2 PM notification
+    tellSWSchedule();
+    // Register Periodic Background Sync as extra layer (Chrome Android)
+    registerPeriodicSync();
+  } else {
+    alert('لم يُمنح إذن الإشعارات. يرجى السماح من إعدادات المتصفح.');
+  }
+});
+
+function tellSWSchedule() {
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE_DAILY_NOTIFY' });
+  }
+}
+
+async function registerPeriodicSync() {
+  if (!swReg) return;
+  try {
+    const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+    if (status.state === 'granted') {
+      await swReg.periodicSync.register('daily-prayer-2pm', { minInterval: 12 * 60 * 60 * 1000 });
+    }
+  } catch { /* not supported — SW timer handles it */ }
+}
+
+// Keep SW alive and re-schedule if it restarted (ping every 20s while page is open)
+function startSWPing() {
+  setInterval(() => {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'PING', notifyEnabled });
+    }
+  }, 20000);
+}
+
+// Keepalive ping handler (separate from main SW message listener)
+function listenSWMessages() {
+  // Messages are now handled centrally in the SW register block above
+}
+
+// ══════════════════════════════════════════════
+//  ONLINE / OFFLINE
+// ══════════════════════════════════════════════
+function updateOnlineStatus() {
+  document.getElementById('offlineBanner').classList.toggle('show', !navigator.onLine);
+}
+window.addEventListener('online',  updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+
+// ══════════════════════════════════════════════
+//  SERVICE WORKER  — register + update banner
+// ══════════════════════════════════════════════
+let pendingSWUpdate = null;
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    swReg = reg;
+    reg.update(); // Check for updates silently
+
+    // When a new SW is waiting, show the gentle update banner
+    function showUpdateBanner(sw) {
+      pendingSWUpdate = sw;
+      document.getElementById('updateBanner').classList.add('show');
+    }
+
+    // Already waiting (e.g. user refreshed)
+    if (reg.waiting) showUpdateBanner(reg.waiting);
+
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      if (!newSW) return;
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateBanner(newSW);
+        }
+      });
+    });
+
+    // If already granted, re-schedule daily notify
+    if (notifyEnabled && Notification.permission === 'granted') {
+      navigator.serviceWorker.ready.then(() => { tellSWSchedule(); registerPeriodicSync(); });
+    }
+  }).catch(() => {});
+
+  // When SW_ACTIVATED arrives, reload to apply new version
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'SW_ACTIVATED') {
+      // Only reload if the user triggered it (pendingSWUpdate was set)
+      if (pendingSWUpdate === null) window.location.reload();
+    }
+    if (e.data && e.data.type === 'GET_INTERACTION_DATE') {
+      e.ports && e.ports[0] &&
+        e.ports[0].postMessage({ lastInteractionDate: state.lastInteractionDate || '' });
+    }
+  });
+
+  listenSWMessages();
+  startSWPing();
+}
+
+// User clicks "Update" → send SKIP_WAITING to the waiting SW → it activates → controllerchange fires → reload
+document.getElementById('updateBannerBtn').addEventListener('click', () => {
+  document.getElementById('updateBanner').classList.remove('show');
+  if (pendingSWUpdate) {
+    // Reload once controller changes
+    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
+    pendingSWUpdate.postMessage({ type: 'SKIP_WAITING' });
+    pendingSWUpdate = null;
+  } else {
+    window.location.reload();
+  }
+});
+
+// ══════════════════════════════════════════════
+//  INSTALL GUIDE
+// ══════════════════════════════════════════════
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+
+  // Show install button in header
+  document.getElementById('btnInstall').style.display = 'flex';
+
+  const banner = document.getElementById('directInstallBanner');
+  if (banner) {
+    banner.classList.remove('hidden');
+    banner.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      const result = await deferredInstallPrompt.userChoice;
+      if (result.outcome === 'accepted') { markInstallGuideSeen(); closeInstallOverlay(); }
+      deferredInstallPrompt = null;
+    }, { once: true });
+  }
+});
+
+document.getElementById('btnInstall').addEventListener('click', () => openInstallOverlay());
+
+function detectPlatform() {
+  return /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase()) ? 'ios' : 'android';
+}
+function switchInstallTab(tab) {
+  document.getElementById('panelAndroid').classList.toggle('active', tab === 'android');
+  document.getElementById('panelIos').classList.toggle('active', tab === 'ios');
+  document.getElementById('tabAndroid').classList.toggle('active', tab === 'android');
+  document.getElementById('tabIos').classList.toggle('active', tab === 'ios');
+}
+function openInstallOverlay() {
+  switchInstallTab(detectPlatform());
+  document.getElementById('installOverlay').classList.add('open');
+}
+function closeInstallOverlay() { document.getElementById('installOverlay').classList.remove('open'); }
+function markInstallGuideSeen() { try { localStorage.setItem('install_guide_seen', '1'); } catch { /* ignore */ } }
+function shouldShowInstallGuide() {
+  if (window.matchMedia('(display-mode: standalone)').matches) return false;
+  if (window.navigator.standalone === true) return false;
+  try { if (localStorage.getItem('install_guide_seen') === '1') return false; } catch { /* ignore */ }
+  return true;
+}
+document.getElementById('installCloseBtn').addEventListener('click', closeInstallOverlay);
+document.getElementById('installSkipBtn').addEventListener('click', () => { markInstallGuideSeen(); closeInstallOverlay(); });
+document.getElementById('installOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeInstallOverlay(); });
+
+// ══════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════
+loadData();
+renderDate();
+buildPrayersCard();
+renderCounters();
+renderTotal(false);
+renderStats();
+updateOnlineStatus();
+checkNotifyBanner();
+
+// Show install guide to new users after 3s
+if (shouldShowInstallGuide()) setTimeout(openInstallOverlay, 3000);
+</script>
+</body>
+</html>
